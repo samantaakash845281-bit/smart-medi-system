@@ -1,0 +1,162 @@
+[
+  {
+    "table": "admins",
+    "columns": [
+      "admin_id",
+      "fullName",
+      "email",
+      "password",
+      "role",
+      "created_at",
+      "profile_image"
+    ],
+    "count": 1
+  },
+  {
+    "table": "appointments",
+    "columns": [
+      "appointment_id",
+      "patient_id",
+      "doctor_id",
+      "appointment_date",
+      "time_slot",
+      "status",
+      "created_at",
+      "patient_name",
+      "doctor_name",
+      "department",
+      "payment_method",
+      "amount",
+      "booking_status"
+    ],
+    "count": 35
+  },
+  {
+    "table": "contact_messages",
+    "columns": [
+      "id",
+      "name",
+      "email",
+      "message",
+      "created_at"
+    ],
+    "count": 0
+  },
+  {
+    "table": "doctors",
+    "columns": [
+      "doctor_id",
+      "fullName",
+      "specialization",
+      "email",
+      "password",
+      "available_days",
+      "available_time_slots",
+      "profile_image"
+    ],
+    "count": 9
+  },
+  {
+    "table": "notifications",
+    "columns": [
+      "id",
+      "user_id",
+      "role",
+      "message",
+      "is_read",
+      "created_at"
+    ],
+    "count": 0
+  },
+  {
+    "table": "password_resets",
+    "columns": [
+      "id",
+      "user_identifier",
+      "otp",
+      "created_at",
+      "expires_at"
+    ],
+    "count": 5
+  },
+  {
+    "table": "patients",
+    "columns": [
+      "patient_id",
+      "fullName",
+      "email",
+      "phone",
+      "password",
+      "role",
+      "status",
+      "dob",
+      "gender",
+      "address",
+      "created_at",
+      "profile_image"
+    ],
+    "count": 4
+  },
+  {
+    "table": "payments",
+    "columns": [
+      "payment_id",
+      "patient_id",
+      "doctor_id",
+      "appointment_id",
+      "transaction_id",
+      "amount",
+      "payment_method",
+      "payment_status",
+      "payment_date",
+      "expiry_time",
+      "order_id",
+      "proof_url",
+      "receipt_url"
+    ],
+    "count": 3
+  },
+  {
+    "table": "prescriptions",
+    "columns": [
+      "id",
+      "appointment_id",
+      "doctor_id",
+      "patient_id",
+      "medicine_name",
+      "dosage",
+      "instructions",
+      "created_at"
+    ],
+    "count": 0
+  },
+  {
+    "table": "reports",
+    "columns": [
+      "id",
+      "patient_id",
+      "doctor_id",
+      "report_type",
+      "report_file",
+      "created_at"
+    ],
+    "count": 0
+  },
+  {
+    "table": "users",
+    "columns": [
+      "id",
+      "fullName",
+      "email",
+      "phone",
+      "password",
+      "role",
+      "status",
+      "dob",
+      "gender",
+      "address",
+      "created_at"
+    ],
+    "count": 2
+  }
+]
