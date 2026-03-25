@@ -197,9 +197,17 @@ export default function DoctorLoginPage() {
                                         type="text"
                                         required
                                         className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm transition-shadow"
-                                        placeholder="doctor@smartmedi.com"
+                                        placeholder="Doctor Email or 10-digit phone"
                                         value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (/^\d/.test(val)) {
+                                                const digits = val.replace(/\D/g, '').slice(0, 10);
+                                                setEmail(digits);
+                                            } else {
+                                                setEmail(val);
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>

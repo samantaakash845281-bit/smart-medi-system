@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Video, XCircle, MoreVertical, Activity } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import socket from '../../services/socket';
 import { usePopup } from '../../context/PopupContext';
@@ -8,6 +9,7 @@ import { toast } from 'react-hot-toast';
 export default function PatientAppointments() {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
     const { openPopup } = usePopup();
     const [filter, setFilter] = useState('All');
 
@@ -39,6 +41,7 @@ export default function PatientAppointments() {
         socket.on('appointmentCancelled', handleUpdate);
         socket.on('paymentCompleted', handleUpdate);
         socket.on('appointmentStatusUpdated', handleUpdate);
+        socket.on('appointmentUpdated', handleUpdate);
 
         return () => {
             socket.off('newAppointment', handleUpdate);
@@ -47,6 +50,7 @@ export default function PatientAppointments() {
             socket.off('appointmentCancelled', handleUpdate);
             socket.off('paymentCompleted', handleUpdate);
             socket.off('appointmentStatusUpdated', handleUpdate);
+            socket.off('appointmentUpdated', handleUpdate);
         };
     }, []);
 
@@ -189,7 +193,10 @@ export default function PatientAppointments() {
                                     </button>
                                 </div>
                             ) : appt?.status?.toLowerCase() === 'confirmed' ? (
-                                <button className="flex-1 md:flex-none justify-center px-4 py-2.5 font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-[10px] transition-all duration-200 shadow-sm shadow-primary-600/10 transform active:scale-95 whitespace-nowrap">
+                                <button
+                                    onClick={() => navigate(`/patient-dashboard/reschedule/${appt?.id}`)}
+                                    className="flex-1 md:flex-none justify-center px-4 py-2.5 font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-[10px] transition-all duration-200 shadow-sm shadow-primary-600/10 transform active:scale-95 whitespace-nowrap"
+                                >
                                     Reschedule
                                 </button>
                             ) : (

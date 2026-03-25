@@ -40,6 +40,18 @@ export default function AdminAppointments() {
             setTimeout(() => fetchAppointments(false), 1000);
         };
 
+        const handleNewBooking = (data) => {
+            setAppointments(prev => [data, ...prev]);
+        };
+
+        const handleConfirmed = (data) => {
+            setAppointments(prev => prev.map(apt => 
+                apt.id === data.bookingId ? { ...apt, status: data.status } : apt
+            ));
+        };
+
+        socket.on('newBooking', handleNewBooking);
+        socket.on('bookingConfirmed', handleConfirmed);
         socket.on('newAppointment', handleUpdate);
         socket.on('appointmentBooked', handleUpdate);
         socket.on('newPaymentRequest', handleUpdate);
@@ -48,6 +60,8 @@ export default function AdminAppointments() {
         socket.on('paymentCompleted', handleUpdate);
 
         return () => {
+            socket.off('newBooking', handleNewBooking);
+            socket.off('bookingConfirmed', handleConfirmed);
             socket.off('newAppointment', handleUpdate);
             socket.off('appointmentBooked', handleUpdate);
             socket.off('newPaymentRequest', handleUpdate);

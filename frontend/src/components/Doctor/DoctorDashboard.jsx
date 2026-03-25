@@ -39,6 +39,26 @@ export default function DoctorDashboard() {
         
         fetchDashboardData(true);
 
+        const handleNewBooking = (data) => {
+            // Check if the appointment is for this doctor
+            if (data?.doctorId === user?.id || data?.doctor_id === user?.id) {
+                const today = new Date().toISOString().split('T')[0];
+                if (data.date === today || data.appointment_date === today) {
+                    setTodayAppts(prev => [data, ...prev]);
+                }
+                fetchDashboardData(false);
+            }
+        };
+
+        const handleConfirmed = (data) => {
+            setTodayAppts(prev => prev.map(apt => 
+                (apt.id === data.bookingId || apt.bookingId === data.bookingId) 
+                ? { ...apt, status: data.status } 
+                : apt
+            ));
+            fetchDashboardData(false);
+        };
+
         const handleBooking = (data) => {
             // Check if the appointment is for this doctor
             if (data?.doctor_id === user?.id || data?.doctorId === user?.id) {
@@ -63,14 +83,20 @@ export default function DoctorDashboard() {
             setTimeout(() => fetchDashboardData(false), 1000);
         };
 
+        socket.on('newBooking', handleNewBooking);
+        socket.on('bookingConfirmed', handleConfirmed);
         socket.on('appointmentBooked', handleBooking);
         socket.on('appointmentCancelled', handleCancellation);
         socket.on('paymentCompleted', handlePayment);
+        socket.on('appointmentUpdated', () => fetchDashboardData(false));
 
         return () => {
+            socket.off('newBooking', handleNewBooking);
+            socket.off('bookingConfirmed', handleConfirmed);
             socket.off('appointmentBooked', handleBooking);
             socket.off('appointmentCancelled', handleCancellation);
             socket.off('paymentCompleted', handlePayment);
+            socket.off('appointmentUpdated');
         };
     }, [user?.id]);
 

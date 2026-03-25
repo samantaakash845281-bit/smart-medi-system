@@ -194,8 +194,23 @@ const bookAppointment = async (req, res, next) => {
             status: 'Pending'
         };
 
-        // 4. Notifications & Socket Events (Limited to booked event)
+        // 4. Notifications & Socket Events
         if (global.io) {
+            const socketPayload = {
+                bookingId: appointmentId,
+                doctorId: doctorId,
+                doctorName: doctor.fullName,
+                patientName: patient.fullName,
+                date: date,
+                time: timeSlot,
+                amount: amount,
+                status: 'pending'
+            };
+            
+            // User requested events
+            global.io.emit("newBooking", socketPayload);
+            
+            // Existing events for backward compatibility
             global.io.emit('appointmentBooked', appointmentData);
             global.io.emit('newAppointment', appointmentData);
         }
@@ -209,6 +224,99 @@ const bookAppointment = async (req, res, next) => {
     } catch (error) {
         console.error("Booking Error:", error);
         res.status(500).json({ success: false, message: "Booking failed" });
+    }
+};
+
+// @route   PUT /api/appointments/:id/reschedule
+// @desc    Reschedule an existing appointment (Patient)
+const rescheduleAppointment = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { date, timeSlot } = req.body;
+
+        if (!date || !timeSlot) {
+            return res.status(400).json({ success: false, message: 'Please provide new date and time slot' });
+        }
+
+        // 1. Verify Appointment Ownership & Current Status
+        const [appt] = await db.query(
+            'SELECT patient_id, doctor_id, amount FROM appointments WHERE appointment_id = ?',
+            [id]
+        );
+
+        if (appt.length === 0) {
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
+        }
+
+        // Resilient ID Resolution for ownership check
+        let patientId = req.user.id;
+        const [patById] = await db.query('SELECT patient_id FROM patients WHERE patient_id = ?', [patientId]);
+        if (patById.length > 0) {
+            patientId = patById[0].patient_id;
+        } else {
+            const [userRecord] = await db.query('SELECT email FROM users WHERE id = ?', [req.user.id]);
+            if (userRecord.length > 0) {
+                const [patByEmail] = await db.query('SELECT patient_id FROM patients WHERE email = ?', [userRecord[0].email]);
+                if (patByEmail.length > 0) patientId = patByEmail[0].patient_id;
+            }
+        }
+
+        if (appt[0].patient_id !== patientId && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Unauthorized to reschedule this appointment' });
+        }
+
+        // 2. Check Availability for new slot
+        const [existing] = await db.query(
+            'SELECT appointment_id FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND time_slot = ? AND status != "cancelled" AND appointment_id != ?',
+            [appt[0].doctor_id, date, timeSlot, id]
+        );
+
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: 'This slot is already booked' });
+        }
+
+        // 3. Update Appointment
+        // Note: Requirement 6 says to set status back to "pending"
+        await db.query(
+            'UPDATE appointments SET appointment_date = ?, time_slot = ?, status = "pending", booking_status = "Pending" WHERE appointment_id = ?',
+            [date, timeSlot, id]
+        );
+
+        // 4. Notifications & Sockets
+        if (global.io) {
+            const [patientInfo] = await db.query('SELECT fullName FROM patients WHERE patient_id = ?', [patientId]);
+            const [doctorInfo] = await db.query('SELECT fullName, specialization FROM doctors WHERE doctor_id = ?', [appt[0].doctor_id]);
+
+            const socketData = {
+                appointmentId: id,
+                patientName: patientInfo[0]?.fullName,
+                doctorId: appt[0].doctor_id,
+                doctorName: doctorInfo[0]?.fullName,
+                department: doctorInfo[0]?.specialization,
+                appointmentDate: date,
+                appointmentTime: timeSlot,
+                amount: appt[0].amount,
+                status: 'pending',
+                rescheduled: true
+            };
+
+            global.io.emit('appointmentUpdated', socketData);
+            global.io.emit('newBooking', socketData); // Notify admin/doctor dashboards
+            global.io.emit('appointmentStatusUpdated', { appointmentId: id, status: 'pending', doctorId: appt[0].doctor_id });
+            
+            await createNotification(global.io, {
+                userId: patientId,
+                title: 'Appointment Rescheduled',
+                message: `Your appointment with Dr. ${doctorInfo[0]?.fullName} has been rescheduled to ${date} at ${timeSlot}. Status: Pending.`,
+                type: 'appointment'
+            });
+        }
+
+        res.json({ success: true, message: 'Appointment Rescheduled Successfully' });
+
+    } catch (error) {
+        console.error("Reschedule Error:", error);
+        res.status(500).json({ success: false, message: "Rescheduling failed" });
     }
 };
 
@@ -237,5 +345,6 @@ module.exports = {
     getDoctorAppointments,
     getPatientAppointments,
     bookAppointment,
-    getBookedSlots
+    getBookedSlots,
+    rescheduleAppointment
 };

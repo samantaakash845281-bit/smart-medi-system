@@ -67,7 +67,7 @@ const io = new Server(server, {
     cors: {
         origin: (origin, callback) => {
             const whitelist = [
-                "https://smart-medi-system.vercel.app", 
+                "https://smart-medi-system.vercel.app",
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://localhost:5174",
@@ -125,10 +125,10 @@ const { exec } = require('child_process');
 const killPort = (port) => {
     return new Promise((resolve) => {
         if (process.platform !== 'win32') return resolve();
-        
+
         exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
             if (!stdout) return resolve();
-            
+
             const lines = stdout.split('\n');
             const pids = new Set();
             lines.forEach(line => {
@@ -171,24 +171,18 @@ const startServer = async (port) => {
     }
 
     const nextPort = port + 1;
-    
+
     try {
         server.listen(port, () => {
-            console.log(`
-=========================================
-🚀 SmartMedi Backend is LIVE
-📍 Port: ${port}
-🔗 URL: http://localhost:${port}
-🛠️  Mode: ${process.env.NODE_ENV || 'development'}
-=========================================`);
+            console.log(`Backend Server Is Running on Port No. ${port}`);
         }).on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
-                console.warn(`⚠️  Port ${port} is occupied. Attempting failover to ${nextPort}...`);
+                console.warn(`Port ${port} is occupied. Attempting failover to ${nextPort}...`);
                 // Close the server if it partially failed but registered the event
-                server.close(); 
+                server.close();
                 startServer(nextPort);
             } else {
-                console.error('❌ Server failed to start:', err);
+                console.error('Server failed to start:', err);
                 process.exit(1);
             }
         });

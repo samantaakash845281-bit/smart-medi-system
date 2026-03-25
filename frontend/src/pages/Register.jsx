@@ -29,6 +29,17 @@ export default function RegisterPage() {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        
+        // Special handling for phone to only allow digits and max 10
+        if (name === 'phone') {
+            const digitsOnly = value.replace(/\D/g, '').slice(0, 10);
+            setFormData(prev => ({
+                ...prev,
+                [name]: digitsOnly
+            }));
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -81,7 +92,8 @@ export default function RegisterPage() {
 
         try {
             const response = await api.post('/auth/send-verification-otp', {
-                email: formData.email
+                email: formData.email,
+                phone: formData.phone
             });
 
             if (response.success) {
@@ -96,7 +108,7 @@ export default function RegisterPage() {
                 setError(response.message || 'Registration failed');
             }
         } catch (err) {
-            setError('Server error during registration');
+            setError(err.message || 'Server error during registration');
         } finally {
             setIsLoading(false);
         }
@@ -311,6 +323,8 @@ export default function RegisterPage() {
                                             type="tel"
                                             name="phone"
                                             required
+                                            maxLength="10"
+                                            inputMode="numeric"
                                             className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-600 dark:focus:border-teal-500 transition-all duration-300 text-slate-900 dark:text-white font-medium"
                                             placeholder="10-digit number"
                                             value={formData.phone}

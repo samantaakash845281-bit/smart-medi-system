@@ -143,12 +143,16 @@ const updateAppointmentStatus = async (req, res, next) => {
         }
 
         // Emit real-time event
-        const io = req.app.get('socketio');
-        if (io) {
-            io.emit('appointmentStatusUpdated', { appointmentId, status, doctorId });
+        if (global.io) {
+            const socketData = {
+                appointmentId,
+                status,
+                doctorId
+            };
+            global.io.emit('appointmentStatusUpdated', socketData);
             
             if (status === 'cancelled') {
-                io.emit('appointmentCancelled', { appointmentId, doctorId });
+                global.io.emit('appointmentCancelled', socketData);
             }
         }
 
@@ -222,12 +226,12 @@ const getDoctorsByDepartment = async (req, res, next) => {
         `;
         const [doctors] = await db.query(query, [department]);
 
-        // Fix: Relax conditions for demo (Point 2 & 6)
+        // Use real values from DB if available, fallback for missing columns
         const processedDoctors = doctors.map(doc => ({
             ...doc,
-            availability: 'Available', // Standardize for demo
-            experience: '5+ Years',
-            fee: 500
+            availability: 'Available', // Maintain for demo logic
+            experience: doc.experience ? `${doc.experience}+ Years` : '5+ Years',
+            fee: doc.fees || 500
         }));
 
         res.json({ success: true, data: processedDoctors });
@@ -288,9 +292,9 @@ const rescheduleAppointment = async (req, res, next) => {
         }
 
         // Notify patient
-        const io = req.app.get('socketio');
-        if (io) {
-            io.emit('appointmentUpdated', { appointmentId, date, timeSlot, status: 'confirmed' });
+        if (global.io) {
+            const socketData = { appointmentId, date, timeSlot, status: 'confirmed' };
+            global.io.emit('appointmentUpdated', socketData);
             
             const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE doctor_id = ?', [req.user.id]);
             const doctorName = docInfo[0]?.fullName || 'Doctor';
@@ -298,7 +302,7 @@ const rescheduleAppointment = async (req, res, next) => {
             // Get patient details for notification
             const [appt] = await db.query('SELECT patient_id FROM appointments WHERE appointment_id = ?', [appointmentId]);
             if (appt.length > 0) {
-                await createNotification(io, {
+                await createNotification(global.io, {
                     userId: appt[0].patient_id,
                     title: 'Appointment Rescheduled',
                     message: `Your appointment with Dr. ${doctorName} has been rescheduled to ${date} at ${timeSlot}.`,
@@ -343,13 +347,12 @@ const startConsultation = async (req, res, next) => {
         }
 
         // Notify patient
-        const io = req.app.get('socketio');
-        if (io) {
+        if (global.io) {
             const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE doctor_id = ?', [req.user.id]);
             const doctorName = docInfo[0]?.fullName || 'Doctor';
 
-            io.emit('appointmentStatusUpdated', { appointmentId, status: 'in_progress', doctorId: req.user.id });
-            await createNotification(io, {
+            global.io.emit('appointmentStatusUpdated', { appointmentId, status: 'in_progress', doctorId: req.user.id });
+            await createNotification(global.io, {
                 userId: appt[0].patient_id,
                 title: 'Consultation Started',
                 message: `Dr. ${doctorName} has started your consultation.`,
@@ -379,15 +382,14 @@ const completeConsultation = async (req, res, next) => {
         }
 
         // Notify patient
-        const io = req.app.get('socketio');
-        if (io) {
+        if (global.io) {
             const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE doctor_id = ?', [req.user.id]);
             const doctorName = docInfo[0]?.fullName || 'Doctor';
 
             const [appt] = await db.query('SELECT patient_id FROM appointments WHERE appointment_id = ?', [appointmentId]);
             if (appt.length > 0) {
-                io.emit('appointmentStatusUpdated', { appointmentId, status: 'completed', doctorId: req.user.id });
-                await createNotification(io, {
+                global.io.emit('appointmentStatusUpdated', { appointmentId, status: 'completed', doctorId: req.user.id });
+                await createNotification(global.io, {
                     userId: appt[0].patient_id,
                     title: 'Consultation Completed',
                     message: `Your consultation with Dr. ${doctorName} has been completed.`,

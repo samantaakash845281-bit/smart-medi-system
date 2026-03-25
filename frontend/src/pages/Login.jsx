@@ -82,6 +82,41 @@ export default function LoginPage() {
         setResetLoading(false);
     };
 
+    const handleResetPassword = async (e) => {
+        if (e) e.preventDefault();
+        setResetError('');
+        
+        if (resetOtp.length !== 6) {
+            setResetError('Please enter a valid 6-digit OTP');
+            return;
+        }
+        
+        if (!newPassword) {
+            setResetError('Please enter a new password');
+            return;
+        }
+
+        setResetLoading(true);
+        try {
+            const response = await api.post('/auth/verify-otp', {
+                identifier: resetIdentifier,
+                otp: resetOtp,
+                newPassword: newPassword
+            });
+
+            if (response.success) {
+                setForgotStep(3);
+                setResetSuccess('');
+            } else {
+                setResetError(response.message || 'OTP verification failed');
+            }
+        } catch (err) {
+            setResetError(err.message || 'Verification failed. Please try again.');
+        } finally {
+            setResetLoading(false);
+        }
+    };
+
 
 
     const handleGoogleLogin = async () => {
@@ -259,9 +294,18 @@ export default function LoginPage() {
                                                 type="text"
                                                 required
                                                 className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-600 dark:focus:border-teal-500 transition-all duration-300 text-slate-900 dark:text-white font-medium"
-                                                placeholder="Enter your email or phone"
+                                                placeholder="Email or 10-digit phone"
                                                 value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    // If it looks like a phone number (starts with digit), restrict it
+                                                    if (/^\d/.test(val)) {
+                                                        const digits = val.replace(/\D/g, '').slice(0, 10);
+                                                        setEmail(digits);
+                                                    } else {
+                                                        setEmail(val);
+                                                    }
+                                                }}
                                             />
                                         </div>
                                     </div>

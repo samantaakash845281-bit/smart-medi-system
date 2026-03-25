@@ -40,6 +40,7 @@ import DoctorEarnings from '../components/Doctor/DoctorEarnings';
 import AdminPaymentManagement from '../components/Admin/AdminPaymentManagement';
 import AddDoctor from '../components/Admin/AddDoctor';
 import AppointmentSuccess from '../components/Patient/AppointmentSuccess';
+import RescheduleAppointment from '../components/Patient/RescheduleAppointment';
 import DoctorConsultation from '../components/Doctor/DoctorConsultation';
 import DoctorDetail from '../components/Admin/DoctorDetail';
 import PatientDetail from '../components/Admin/PatientDetail';
@@ -206,6 +207,11 @@ export default function AppRoutes() {
                 <Route path="/patient-dashboard/appointment-success" element={
                     <ProtectedRoute allowedRoles={['patient']}>
                         <AppointmentSuccess />
+                    </ProtectedRoute>
+                } />
+                <Route path="/patient-dashboard/reschedule/:appointmentId" element={
+                    <ProtectedRoute allowedRoles={['patient']}>
+                        <RescheduleAppointment />
                     </ProtectedRoute>
                 } />
             </Route>

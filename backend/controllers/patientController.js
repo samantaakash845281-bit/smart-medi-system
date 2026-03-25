@@ -24,9 +24,9 @@ const getDoctors = async (req, res, next) => {
             return {
                 ...d,
                 availability: availableDays.includes(todayName) ? 'Available' : 'Not Available',
-                experience: '5+ Years',
-                fee: 500,
-                consultation_fee: 500
+                experience: d.experience ? `${d.experience}+ Years` : '5+ Years',
+                fee: d.fees || 500,
+                consultation_fee: d.fees || 500
             };
         });
         res.json({ success: true, data: mappedDoctors });
@@ -278,9 +278,7 @@ const updatePaymentStatus = async (req, res, next) => {
         }
 
         // Real-time Event (Socket.IO)
-        if (status === 'paid') {
-            const io = req.app.get('socketio');
-            if (io) {
+        if (status === 'paid' && global.io) {
                 // Fetch appointment details for socket payload
                 const [apptDetails] = await db.query(`
                     SELECT a.appointment_id, a.patient_id, a.doctor_id, a.appointment_date, a.time_slot, a.amount,
@@ -305,8 +303,8 @@ const updatePaymentStatus = async (req, res, next) => {
                         paymentStatus: 'paid'
                     };
 
-                    io.to(`doctor_${appt.doctor_id}`).emit('appointmentBooked', socketData);
-                    io.to('admin').emit('appointmentBooked', socketData);
+                    global.io.to(`doctor_${appt.doctor_id}`).emit('appointmentBooked', socketData);
+                    global.io.to('admin').emit('appointmentBooked', socketData);
                     
                     const paymentPayload = {
                         appointment_id: id,
@@ -315,10 +313,9 @@ const updatePaymentStatus = async (req, res, next) => {
                         amount: appt.amount,
                         status: 'paid'
                     };
-                    io.to('admin').emit('paymentCompleted', paymentPayload);
-                    io.to(`doctor_${appt.doctor_id}`).emit('paymentCompleted', paymentPayload);
-                    io.emit('newAppointment', socketData);
-                }
+                    global.io.to('admin').emit('paymentCompleted', paymentPayload);
+                    global.io.to(`doctor_${appt.doctor_id}`).emit('paymentCompleted', paymentPayload);
+                    global.io.emit('newAppointment', socketData);
             }
         }
 

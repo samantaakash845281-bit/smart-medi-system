@@ -9,7 +9,8 @@ const {
     getDoctorAppointments,
     getPatientAppointments,
     bookAppointment,
-    getBookedSlots
+    getBookedSlots,
+    rescheduleAppointment
 } = require('../controllers/appointmentController');
 const { verifyToken } = require('../middleware/verifyToken');
 const { verifyRole } = require('../middleware/verifyRole');
@@ -38,5 +39,8 @@ router.post('/:id/pay', updatePaymentStatus);
 
 // PUT /api/appointments/:id/status -> Update status (Doctor)
 router.put('/:id/status', updateAppointmentStatus);
+
+// PUT /api/appointments/:id/reschedule -> Reschedule appointment (Patient)
+router.put('/:id/reschedule', rescheduleAppointment);
 
 module.exports = router;

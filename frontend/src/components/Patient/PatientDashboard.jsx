@@ -83,6 +83,7 @@ export default function PatientDashboard() {
         socket.on('paymentCompleted', handlePayment);
         socket.on('appointmentCancelled', handleCancellation);
         socket.on('appointmentStatusUpdated', handlePayment); // Refresh data on status change
+        socket.on('appointmentUpdated', () => fetchData(false));
 
         return () => {
             socket.off('appointmentBooked', handlePayment);
@@ -90,6 +91,7 @@ export default function PatientDashboard() {
             socket.off('paymentCompleted', handlePayment);
             socket.off('appointmentCancelled', handleCancellation);
             socket.off('appointmentStatusUpdated', handlePayment);
+            socket.off('appointmentUpdated');
         };
     }, [user?.id]);
 

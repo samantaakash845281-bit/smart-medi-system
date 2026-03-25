@@ -78,6 +78,20 @@ export default function AdminDashboard() {
         socket.emit('joinAdminRoom');
 
         // Real-time updates via Socket.io
+        const handleNewBooking = (data) => {
+            setRecentAppts(prev => [data, ...prev].slice(0, 5));
+            fetchDashboardData(false);
+        };
+
+        const handleConfirmed = (data) => {
+            setRecentAppts(prev => prev.map(apt => 
+                apt.id === data.bookingId || apt.bookingId === data.bookingId 
+                ? { ...apt, status: data.status } 
+                : apt
+            ));
+            fetchDashboardData(false);
+        };
+
         const handleBooking = (data) => {
             // Update local state instantly for the "Recent Appointments" table
             setRecentAppts(prev => [data, ...prev].slice(0, 5));
@@ -100,6 +114,8 @@ export default function AdminDashboard() {
             fetchDashboardData(false);
         };
 
+        socket.on('newBooking', handleNewBooking);
+        socket.on('bookingConfirmed', handleConfirmed);
         socket.on('appointmentBooked', handleBooking);
         socket.on('appointmentCancelled', handleCancellation);
         socket.on('paymentCompleted', handlePayment);
@@ -108,6 +124,8 @@ export default function AdminDashboard() {
         socket.on('newManualPayment', () => fetchDashboardData(false));
 
         return () => {
+            socket.off('newBooking', handleNewBooking);
+            socket.off('bookingConfirmed', handleConfirmed);
             socket.off('appointmentBooked', handleBooking);
             socket.off('appointmentCancelled', handleCancellation);
             socket.off('paymentCompleted', handlePayment);

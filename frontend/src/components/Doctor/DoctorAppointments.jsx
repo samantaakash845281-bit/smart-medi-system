@@ -60,12 +60,14 @@ export default function DoctorAppointments() {
         socket.on('appointmentBooked', handleUpdate); // Fallback
         socket.on('appointmentCancelled', handleUpdate);
         socket.on('paymentCompleted', handleUpdate);
+        socket.on('appointmentUpdated', handleUpdate);
         
         return () => {
             socket.off('newAppointment', handleUpdate);
             socket.off('appointmentBooked', handleUpdate);
             socket.off('appointmentCancelled', handleUpdate);
             socket.off('paymentCompleted', handleUpdate);
+            socket.off('appointmentUpdated', handleUpdate);
         };
     }, []);
 

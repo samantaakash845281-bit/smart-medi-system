@@ -13,15 +13,16 @@ const registerUser = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Please provide all required fields' });
         }
 
-        // Validate phone number (exactly 10 digits, only numbers)
-        const phoneRegex = /^\d{10}$/;
-        if (!phoneRegex.test(phone)) {
-            return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
-        }
+       let cleanPhone = phone.replace(/\D/g, ''); // Remove non-digit characters
+if (!/^\d{10}$/.test(cleanPhone)) {
+    return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
+}
+        // Check if email exists in any table
+        const [patientEmail] = await db.query('SELECT patient_id FROM patients WHERE email = ?', [email]);
+        const [doctorEmail] = await db.query('SELECT doctor_id FROM doctors WHERE email = ?', [email]);
+        const [adminEmail] = await db.query('SELECT admin_id FROM admins WHERE email = ?', [email]);
 
-        // Check if email exists
-        const [existingEmail] = await db.query('SELECT patient_id FROM patients WHERE email = ?', [email]);
-        if (existingEmail.length > 0) {
+        if (patientEmail.length > 0 || doctorEmail.length > 0 || adminEmail.length > 0) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }
 
@@ -44,7 +45,7 @@ const registerUser = async (req, res, next) => {
         // Insert patient
         const [result] = await db.query(
             'INSERT INTO patients (fullName, email, phone, password, role, status) VALUES (?, ?, ?, ?, ?, ?)',
-            [fullName, email, phone, hashedPassword, 'patient', status]
+            [fullName, email, cleanPhone, hashedPassword, 'patient', status]
         );
 
         res.status(201).json({
@@ -58,6 +59,10 @@ const registerUser = async (req, res, next) => {
             }
         });
     } catch (error) {
+        console.error("Registration Error (registerUser):", error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: 'User with this email or phone already exists' });
+        }
         next(error);
     }
 };
@@ -79,8 +84,14 @@ const loginUser = async (req, res, next) => {
 
         // Helper to find user in a specific table
         const findUserInTable = async (tableName, idCol) => {
-            const query = `SELECT * FROM ${tableName} WHERE email = ?`;
-            const [users] = await db.query(query, [email]);
+            const isPhone = /^\d{10}$/.test(email.replace(/\D/g, ''));
+            const cleanIdentifier = isPhone ? email.replace(/\D/g, '') : email;
+            
+            const query = isPhone 
+                ? `SELECT * FROM ${tableName} WHERE phone = ?` 
+                : `SELECT * FROM ${tableName} WHERE email = ?`;
+                
+            const [users] = await db.query(query, [cleanIdentifier]);
             if (users.length > 0) {
                 return { userData: users[0], idCol };
             }
@@ -148,6 +159,16 @@ const loginUser = async (req, res, next) => {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
 
+        // 1. Check Account Status (Active/Blocked)
+        if (user.status && user.status !== 'active') {
+            return res.status(403).json({ success: false, message: 'Your account is currently inactive or blocked. Please contact support.' });
+        }
+
+        // 2. Check Verification Status (Patients Only)
+        if (role === 'patient' && user.isVerified === 0) {
+            return res.status(403).json({ success: false, message: 'Please verify your phone number before logging in.' });
+        }
+
         if (!process.env.JWT_SECRET) {
             return res.status(500).json({ success: false, message: 'Server configuration error: JWT_SECRET missing' });
         }
@@ -196,14 +217,34 @@ const forgotPassword = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Please provide your email or phone number' });
         }
 
-        // Check if user exists by email or phone (Patients only for now)
-        const [users] = await db.query('SELECT patient_id as id, email, phone FROM patients WHERE email = ? OR phone = ?', [identifier, identifier]);
-
-        if (users.length === 0) {
-            return res.status(404).json({ success: false, message: 'User not found with that email or phone number' });
+        // Check if user exists by email or phone across all tables
+        let user = null;
+        let table = '';
+        
+        // Try Patients
+        const [patients] = await db.query('SELECT patient_id as id, email, phone, fullName FROM patients WHERE email = ? OR phone = ?', [identifier, identifier]);
+        if (patients.length > 0) {
+            user = patients[0];
+            table = 'patients';
+        } else {
+            // Try Doctors
+            const [doctors] = await db.query('SELECT doctor_id as id, email, phone, fullName FROM doctors WHERE email = ? OR phone = ?', [identifier, identifier]);
+            if (doctors.length > 0) {
+                user = doctors[0];
+                table = 'doctors';
+            } else {
+                // Try Admins
+                const [admins] = await db.query('SELECT admin_id as id, email, phone, fullName FROM admins WHERE email = ? OR phone = ?', [identifier, identifier]);
+                if (admins.length > 0) {
+                    user = admins[0];
+                    table = 'admins';
+                }
+            }
         }
 
-        const user = users[0];
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'No registered account found with that email or phone number' });
+        }
 
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -259,21 +300,30 @@ const verifyOtp = async (req, res, next) => {
         // Check expiration
         if (new Date() > new Date(resetRecord.expires_at)) {
             await db.query('DELETE FROM password_resets WHERE id = ?', [resetRecord.id]);
-            return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+            return res.status(400).json({ success: false, message: 'OTP expired. Request a new OTP.' });
         }
 
         // Verify the OTP Hash
         const isMatch = await bcrypt.compare(otp, resetRecord.otp);
         if (!isMatch) {
-            return res.status(400).json({ success: false, message: 'Invalid OTP' });
+            return res.status(400).json({ success: false, message: 'Invalid OTP. Please enter the correct OTP.' });
         }
 
         // Hash the new password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-        // Update Patient's password
-        await db.query('UPDATE patients SET password = ? WHERE email = ? OR phone = ?', [hashedPassword, identifier, identifier]);
+        // Update User's password in the detected table
+        const [pTable] = await db.query('SELECT "patients" as tbl FROM patients WHERE email = ? OR phone = ? UNION SELECT "doctors" as tbl FROM doctors WHERE email = ? OR phone = ? UNION SELECT "admins" as tbl FROM admins WHERE email = ? OR phone = ?', [identifier, identifier, identifier, identifier, identifier, identifier]);
+        
+        if (pTable.length === 0) {
+            return res.status(404).json({ success: false, message: 'User account lost during session. Please retry.' });
+        }
+
+        const targetTable = pTable[0].tbl;
+        const idCol = targetTable === 'patients' ? 'patient_id' : (targetTable === 'doctors' ? 'doctor_id' : 'admin_id');
+
+        await db.query(`UPDATE ${targetTable} SET password = ? WHERE email = ? OR phone = ?`, [hashedPassword, identifier, identifier]);
 
         // Clean up the used OTP record
         await db.query('DELETE FROM password_resets WHERE user_identifier = ?', [identifier]);
@@ -284,7 +334,8 @@ const verifyOtp = async (req, res, next) => {
         });
 
     } catch (error) {
-        next(error);
+        console.error("OTP Error:", error);
+        res.status(400).json({ success: false, message: error.message || "OTP verification failed" });
     }
 };
 
@@ -386,7 +437,7 @@ const checkUser = async (req, res, next) => {
 // @route   POST /api/auth/send-verification-otp
 const sendVerificationOtp = async (req, res, next) => {
     try {
-        const { email } = req.body;
+        const { email, phone } = req.body;
         if (!email) return res.status(400).json({ success: false, message: 'Email required' });
 
         // Check if email exists in any table
@@ -396,6 +447,14 @@ const sendVerificationOtp = async (req, res, next) => {
 
         if (patient.length > 0 || doctor.length > 0 || admin.length > 0) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
+        }
+
+        // Check if phone exists (if provided during initial step)
+        if (phone) {
+            const [existingPhone] = await db.query('SELECT patient_id FROM patients WHERE phone = ?', [phone]);
+            if (existingPhone.length > 0) {
+                return res.status(400).json({ success: false, message: 'Phone number already registered' });
+            }
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -527,6 +586,10 @@ const registerUserFinal = async (req, res, next) => {
             }
         );
     } catch (err) {
+        console.error("Registration Final Error (registerUserFinal):", err);
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: 'User with this email or phone already exists' });
+        }
         next(err);
     }
 };
