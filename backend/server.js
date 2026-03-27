@@ -33,6 +33,26 @@ app.get('/', (req, res) => {
     });
 });
 
+// Temporary Route to create missing password_resets table
+app.get('/create-reset-table', async (req, res) => {
+    try {
+        const db = require('./config/db');
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS password_resets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_identifier VARCHAR(255) NOT NULL,
+                otp VARCHAR(255) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        res.json({ success: true, message: 'password_resets table created or already exists' });
+    } catch (error) {
+        console.error('Migration Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Health check route
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
