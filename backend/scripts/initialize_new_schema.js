@@ -44,7 +44,7 @@ async function initializeSchema() {
         // Table 1: admins
         await connection.query(`
             CREATE TABLE admins (
-                admin_id INT AUTO_INCREMENT PRIMARY KEY,
+                id INT AUTO_INCREMENT PRIMARY KEY,
                 fullName VARCHAR(255) NOT NULL,
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
@@ -56,7 +56,7 @@ async function initializeSchema() {
         // Table 1.5: patients
         await connection.query(`
             CREATE TABLE patients (
-                patient_id INT AUTO_INCREMENT PRIMARY KEY,
+                id INT AUTO_INCREMENT PRIMARY KEY,
                 fullName VARCHAR(255) NOT NULL,
                 email VARCHAR(255) UNIQUE NOT NULL,
                 phone VARCHAR(20) UNIQUE,
@@ -73,7 +73,7 @@ async function initializeSchema() {
         // Table 2: doctors
         await connection.query(`
             CREATE TABLE doctors (
-                doctor_id INT AUTO_INCREMENT PRIMARY KEY,
+                id INT AUTO_INCREMENT PRIMARY KEY,
                 fullName VARCHAR(100) NOT NULL,
                 specialization VARCHAR(100) NOT NULL,
                 email VARCHAR(100) UNIQUE NOT NULL,
@@ -86,15 +86,15 @@ async function initializeSchema() {
         // Table 3: appointments
         await connection.query(`
             CREATE TABLE appointments (
-                appointment_id INT AUTO_INCREMENT PRIMARY KEY,
+                id INT AUTO_INCREMENT PRIMARY KEY,
                 patient_id INT NOT NULL,
                 doctor_id INT NOT NULL,
                 appointment_date DATE NOT NULL,
                 time_slot VARCHAR(50) NOT NULL,
                 status ENUM('pending', 'confirmed', 'completed', 'rejected', 'cancelled') DEFAULT 'pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE,
-                FOREIGN KEY (doctor_id) REFERENCES doctors(doctor_id) ON DELETE CASCADE
+                FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+                FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
             ) ENGINE=InnoDB
         `);
 
@@ -111,9 +111,9 @@ async function initializeSchema() {
                 payment_status ENUM('pending', 'verified', 'failed') DEFAULT 'pending',
                 payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 expiry_time TIMESTAMP NULL,
-                FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE CASCADE,
-                FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE SET NULL,
-                FOREIGN KEY (doctor_id) REFERENCES doctors(doctor_id) ON DELETE SET NULL
+                FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
+                FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL,
+                FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE SET NULL
             ) ENGINE=InnoDB
         `);
 
@@ -128,9 +128,9 @@ async function initializeSchema() {
                 dosage VARCHAR(100),
                 instructions TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE CASCADE,
-                FOREIGN KEY (doctor_id) REFERENCES doctors(doctor_id) ON DELETE CASCADE,
-                FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE
+                FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
+                FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+                FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
             ) ENGINE=InnoDB
         `);
 
@@ -143,8 +143,8 @@ async function initializeSchema() {
                 report_type VARCHAR(100) NOT NULL,
                 report_file VARCHAR(255) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE,
-                FOREIGN KEY (doctor_id) REFERENCES doctors(doctor_id) ON DELETE CASCADE
+                FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+                FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
             ) ENGINE=InnoDB
         `);
 

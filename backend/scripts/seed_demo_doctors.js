@@ -20,7 +20,7 @@ async function seed() {
 
         for (const doc of demoDoctors) {
             // Check if doctor exists
-            const [existing] = await db.query('SELECT doctor_id FROM doctors WHERE doctor_id = ? OR fullName = ?', [doc.id, doc.name]);
+            const [existing] = await db.query('SELECT id FROM doctors WHERE id = ? OR fullName = ?', [doc.id, doc.name]);
             
             if (existing.length === 0) {
                 console.log(`Inserting ${doc.name}...`);
@@ -40,7 +40,7 @@ async function seed() {
                 );
             } else {
                 console.log(`${doc.name} already exists. Updating fee if needed...`);
-                await db.query('UPDATE doctors SET fees = ?, specialization = ? WHERE doctor_id = ?', [doc.fee, doc.department, doc.id]);
+                await db.query('UPDATE doctors SET fees = ?, specialization = ? WHERE id = ?', [doc.fee, doc.department, doc.id]);
             }
         }
 

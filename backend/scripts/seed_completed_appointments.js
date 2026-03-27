@@ -11,7 +11,7 @@ async function seedCompletedAppointments() {
 
     try {
         console.log('Fetching some appointments to mark as COMPLETED...');
-        const [appts] = await db.query('SELECT appointment_id FROM appointments LIMIT 5');
+        const [appts] = await db.query('SELECT id FROM appointments LIMIT 5');
         
         if (appts.length === 0) {
             console.log('No appointments found to update.');

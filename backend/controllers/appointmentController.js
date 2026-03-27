@@ -17,7 +17,7 @@ const getAppointments = async (req, res, next) => {
         if (role === 'doctor') {
             query = `
                 SELECT 
-                    a.appointment_id as id,
+                    a.id,
                     p.fullName as patientName,
                     p.email as patientEmail,
                     a.appointment_date,
@@ -27,14 +27,14 @@ const getAppointments = async (req, res, next) => {
                     'Follow-up' as type,
                     a.reason
                 FROM appointments a
-                JOIN patients p ON a.patient_id = p.patient_id
+                JOIN patients p ON a.patient_id = p.id
                 WHERE a.doctor_id = ?
                 ORDER BY a.appointment_date DESC, a.time_slot DESC
             `;
         } else if (role === 'patient' || role === 'user') {
             query = `
                 SELECT 
-                    a.appointment_id as id,
+                    a.id,
                     d.fullName as doctorName,
                     d.specialization as department,
                     a.appointment_date,
@@ -43,14 +43,14 @@ const getAppointments = async (req, res, next) => {
                     a.amount,
                     'Physical' as type
                 FROM appointments a
-                JOIN doctors d ON a.doctor_id = d.doctor_id
+                JOIN doctors d ON a.doctor_id = d.id
                 WHERE a.patient_id = ?
                 ORDER BY a.appointment_date DESC, a.time_slot DESC
             `;
         } else if (role === 'admin') {
             query = `
                 SELECT 
-                    a.appointment_id as id,
+                    a.id,
                     p.fullName as patientName,
                     d.fullName as doctorName,
                     d.specialization as department,
@@ -59,8 +59,8 @@ const getAppointments = async (req, res, next) => {
                     a.status,
                     a.amount
                 FROM appointments a
-                JOIN patients p ON a.patient_id = p.patient_id
-                JOIN doctors d ON a.doctor_id = d.doctor_id
+                JOIN patients p ON a.patient_id = p.id
+                JOIN doctors d ON a.doctor_id = d.id
                 ORDER BY a.appointment_date DESC, a.time_slot DESC
             `;
             queryParams = []; // Admin fetches all
@@ -88,9 +88,9 @@ const getDoctorAppointments = async (req, res, next) => {
     try {
         const { doctorId } = req.params;
         const [appointments] = await db.query(`
-            SELECT a.appointment_id as id, p.fullName as patientName, a.appointment_date, a.time_slot as appointment_time, a.status, a.amount
+            SELECT a.id, p.fullName as patientName, a.appointment_date, a.time_slot as appointment_time, a.status, a.amount
             FROM appointments a
-            JOIN patients p ON a.patient_id = p.patient_id
+            JOIN patients p ON a.patient_id = p.id
             WHERE a.doctor_id = ?
             ORDER BY a.appointment_date DESC
         `, [doctorId]);
@@ -106,9 +106,9 @@ const getPatientAppointments = async (req, res, next) => {
     try {
         const { patientId } = req.params;
         const [appointments] = await db.query(`
-            SELECT a.appointment_id as id, d.fullName as doctorName, d.specialization as department, a.appointment_date, a.time_slot as appointment_time, a.status, a.amount
+            SELECT a.id, d.fullName as doctorName, d.specialization as department, a.appointment_date, a.time_slot as appointment_time, a.status, a.amount
             FROM appointments a
-            JOIN doctors d ON a.doctor_id = d.doctor_id
+            JOIN doctors d ON a.doctor_id = d.id
             WHERE a.patient_id = ?
             ORDER BY a.appointment_date DESC
         `, [patientId]);
@@ -128,17 +128,17 @@ const bookAppointment = async (req, res, next) => {
         let patientId = req.user.id;
         
         // 1. Try finding patient record directly by ID
-        const [patById] = await db.query('SELECT patient_id FROM patients WHERE patient_id = ?', [patientId]);
+        const [patById] = await db.query('SELECT id FROM patients WHERE id = ?', [patientId]);
         
         if (patById.length > 0) {
-            patientId = patById[0].patient_id;
+            patientId = patById[0].id;
         } else {
             // 2. If not found, try to find by email from the users table
             const [userRecord] = await db.query('SELECT email FROM users WHERE id = ?', [req.user.id]);
             if (userRecord.length > 0) {
-                const [patByEmail] = await db.query('SELECT patient_id FROM patients WHERE email = ?', [userRecord[0].email]);
+                const [patByEmail] = await db.query('SELECT id FROM patients WHERE email = ?', [userRecord[0].email]);
                 if (patByEmail.length > 0) {
-                    patientId = patByEmail[0].patient_id;
+                    patientId = patByEmail[0].id;
                 }
             }
         }
@@ -147,8 +147,8 @@ const bookAppointment = async (req, res, next) => {
         if (!patientId || patientId === 'google-demo-user') {
             // Check if there is ANY patient with a matching name or email from demo data
             // For now, if it's still google-demo-user, we use a default patient or fail
-            const [firstPat] = await db.query('SELECT patient_id FROM patients LIMIT 1');
-            if (firstPat.length > 0) patientId = firstPat[0].patient_id;
+            const [firstPat] = await db.query('SELECT id FROM patients LIMIT 1');
+            if (firstPat.length > 0) patientId = firstPat[0].id;
         }
 
         if (!doctorId || !date || !timeSlot || !amount) {
@@ -156,8 +156,8 @@ const bookAppointment = async (req, res, next) => {
         }
 
         // 1. Fetch Details
-        const [patientDetails] = await db.query('SELECT fullName, email, phone FROM patients WHERE patient_id = ?', [patientId]);
-        const [doctorDetails] = await db.query('SELECT fullName, specialization FROM doctors WHERE doctor_id = ?', [doctorId]);
+        const [patientDetails] = await db.query('SELECT fullName, email, phone FROM patients WHERE id = ?', [patientId]);
+        const [doctorDetails] = await db.query('SELECT fullName, specialization FROM doctors WHERE id = ?', [doctorId]);
 
         if (patientDetails.length === 0 || doctorDetails.length === 0) {
             return res.status(404).json({ success: false, message: 'Patient or Doctor not found' });
@@ -168,7 +168,7 @@ const bookAppointment = async (req, res, next) => {
 
         // 2. Check Availability
         const [existing] = await db.query(
-            'SELECT appointment_id FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND time_slot = ? AND status != "cancelled"',
+            'SELECT id FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND time_slot = ? AND status != "cancelled"',
             [doctorId, date, timeSlot]
         );
 
@@ -240,7 +240,7 @@ const rescheduleAppointment = async (req, res, next) => {
 
         // 1. Verify Appointment Ownership & Current Status
         const [appt] = await db.query(
-            'SELECT patient_id, doctor_id, amount FROM appointments WHERE appointment_id = ?',
+            'SELECT patient_id, doctor_id, amount FROM appointments WHERE id = ?',
             [id]
         );
 
@@ -250,14 +250,14 @@ const rescheduleAppointment = async (req, res, next) => {
 
         // Resilient ID Resolution for ownership check
         let patientId = req.user.id;
-        const [patById] = await db.query('SELECT patient_id FROM patients WHERE patient_id = ?', [patientId]);
+        const [patById] = await db.query('SELECT id FROM patients WHERE id = ?', [patientId]);
         if (patById.length > 0) {
-            patientId = patById[0].patient_id;
+            patientId = patById[0].id;
         } else {
             const [userRecord] = await db.query('SELECT email FROM users WHERE id = ?', [req.user.id]);
             if (userRecord.length > 0) {
-                const [patByEmail] = await db.query('SELECT patient_id FROM patients WHERE email = ?', [userRecord[0].email]);
-                if (patByEmail.length > 0) patientId = patByEmail[0].patient_id;
+                const [patByEmail] = await db.query('SELECT id FROM patients WHERE email = ?', [userRecord[0].email]);
+                if (patByEmail.length > 0) patientId = patByEmail[0].id;
             }
         }
 
@@ -267,7 +267,7 @@ const rescheduleAppointment = async (req, res, next) => {
 
         // 2. Check Availability for new slot
         const [existing] = await db.query(
-            'SELECT appointment_id FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND time_slot = ? AND status != "cancelled" AND appointment_id != ?',
+            'SELECT id FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND time_slot = ? AND status != "cancelled" AND id != ?',
             [appt[0].doctor_id, date, timeSlot, id]
         );
 
@@ -278,14 +278,14 @@ const rescheduleAppointment = async (req, res, next) => {
         // 3. Update Appointment
         // Note: Requirement 6 says to set status back to "pending"
         await db.query(
-            'UPDATE appointments SET appointment_date = ?, time_slot = ?, status = "pending", booking_status = "Pending" WHERE appointment_id = ?',
+            'UPDATE appointments SET appointment_date = ?, time_slot = ?, status = "pending", booking_status = "Pending" WHERE id = ?',
             [date, timeSlot, id]
         );
 
         // 4. Notifications & Sockets
         if (global.io) {
-            const [patientInfo] = await db.query('SELECT fullName FROM patients WHERE patient_id = ?', [patientId]);
-            const [doctorInfo] = await db.query('SELECT fullName, specialization FROM doctors WHERE doctor_id = ?', [appt[0].doctor_id]);
+            const [patientInfo] = await db.query('SELECT fullName FROM patients WHERE id = ?', [patientId]);
+            const [doctorInfo] = await db.query('SELECT fullName, specialization FROM doctors WHERE id = ?', [appt[0].doctor_id]);
 
             const socketData = {
                 appointmentId: id,

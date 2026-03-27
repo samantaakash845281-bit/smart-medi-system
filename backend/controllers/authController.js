@@ -18,9 +18,9 @@ if (!/^\d{10}$/.test(cleanPhone)) {
     return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
 }
         // Check if email exists in any table
-        const [patientEmail] = await db.query('SELECT patient_id FROM patients WHERE email = ?', [email]);
-        const [doctorEmail] = await db.query('SELECT doctor_id FROM doctors WHERE email = ?', [email]);
-        const [adminEmail] = await db.query('SELECT admin_id FROM admins WHERE email = ?', [email]);
+        const [patientEmail] = await db.query('SELECT id FROM patients WHERE email = ?', [email]);
+        const [doctorEmail] = await db.query('SELECT id FROM doctors WHERE email = ?', [email]);
+        const [adminEmail] = await db.query('SELECT id FROM admins WHERE email = ?', [email]);
 
         if (patientEmail.length > 0 || doctorEmail.length > 0 || adminEmail.length > 0) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
@@ -101,17 +101,17 @@ const loginUser = async (req, res, next) => {
         // If a role is provided, try that table first
         if (requestedRole) {
             let table = 'patients';
-            let id = 'patient_id';
+            let id = 'id';
             
             if (requestedRole === 'doctor') {
                 table = 'doctors';
-                id = 'doctor_id';
+                id = 'id';
             } else if (requestedRole === 'admin') {
                 table = 'admins';
-                id = 'admin_id';
+                id = 'id';
             } else if (requestedRole === 'patient' || requestedRole === 'user') {
                 table = 'patients';
-                id = 'patient_id';
+                id = 'id';
             }
 
             const result = await findUserInTable(table, id);
@@ -126,21 +126,21 @@ const loginUser = async (req, res, next) => {
         // If user not found (or no role provided), search all tables sequentially
         if (!user) {
             // Try Admins
-            let result = await findUserInTable('admins', 'admin_id');
+            let result = await findUserInTable('admins', 'id');
             if (result) {
                 user = result.userData;
                 idField = result.idCol;
                 role = 'admin';
             } else {
                 // Try Doctors
-                result = await findUserInTable('doctors', 'doctor_id');
+                result = await findUserInTable('doctors', 'id');
                 if (result) {
                     user = result.userData;
                     idField = result.idCol;
                     role = 'doctor';
                 } else {
                     // Try Patients
-                    result = await findUserInTable('patients', 'patient_id');
+                    result = await findUserInTable('patients', 'id');
                     if (result) {
                         user = result.userData;
                         idField = result.idCol;
@@ -222,19 +222,19 @@ const forgotPassword = async (req, res, next) => {
         let table = '';
         
         // Try Patients
-        const [patients] = await db.query('SELECT patient_id as id, email, phone, fullName FROM patients WHERE email = ? OR phone = ?', [identifier, identifier]);
+        const [patients] = await db.query('SELECT id, email, phone, fullName FROM patients WHERE email = ? OR phone = ?', [identifier, identifier]);
         if (patients.length > 0) {
             user = patients[0];
             table = 'patients';
         } else {
             // Try Doctors
-            const [doctors] = await db.query('SELECT doctor_id as id, email, phone, fullName FROM doctors WHERE email = ? OR phone = ?', [identifier, identifier]);
+            const [doctors] = await db.query('SELECT id, email, phone, fullName FROM doctors WHERE email = ? OR phone = ?', [identifier, identifier]);
             if (doctors.length > 0) {
                 user = doctors[0];
                 table = 'doctors';
             } else {
                 // Try Admins
-                const [admins] = await db.query('SELECT admin_id as id, email, phone, fullName FROM admins WHERE email = ? OR phone = ?', [identifier, identifier]);
+                const [admins] = await db.query('SELECT id, email, phone, fullName FROM admins WHERE email = ? OR phone = ?', [identifier, identifier]);
                 if (admins.length > 0) {
                     user = admins[0];
                     table = 'admins';
@@ -321,7 +321,7 @@ const verifyOtp = async (req, res, next) => {
         }
 
         const targetTable = pTable[0].tbl;
-        const idCol = targetTable === 'patients' ? 'patient_id' : (targetTable === 'doctors' ? 'doctor_id' : 'admin_id');
+        const idCol = 'id';
 
         await db.query(`UPDATE ${targetTable} SET password = ? WHERE email = ? OR phone = ?`, [hashedPassword, identifier, identifier]);
 
@@ -349,44 +349,57 @@ const googleLogin = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Missing Google user data' });
         }
 
-        // Check if user exists in any table to determine role, but default to patients
+        // Check if user exists in any table
         let user = null;
         let role = null;
-        let idField = '';
+        let idField = 'id';
         let nameField = 'fullName';
 
-        const [patients] = await db.query('SELECT * FROM patients WHERE email = ?', [email]);
-        if (patients.length > 0) {
-            user = patients[0];
-            role = 'patient';
-            idField = 'patient_id';
+        // 1. Check users table
+        const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+        if (users.length > 0) {
+            user = users[0];
+            role = user.role;
         } else {
-            const [doctors] = await db.query('SELECT * FROM doctors WHERE email = ?', [email]);
-            if (doctors.length > 0) {
-                user = doctors[0];
-                role = 'doctor';
-                idField = 'doctor_id';
+            // 2. Fallback to specific tables
+            const [patients] = await db.query('SELECT * FROM patients WHERE email = ?', [email]);
+            if (patients.length > 0) {
+                user = patients[0];
+                role = 'patient';
             } else {
-                const [admins] = await db.query('SELECT * FROM admins WHERE email = ?', [email]);
-                if (admins.length > 0) {
-                    user = admins[0];
-                    role = 'admin';
-                    idField = 'admin_id';
+                const [doctors] = await db.query('SELECT * FROM doctors WHERE email = ?', [email]);
+                if (doctors.length > 0) {
+                    user = doctors[0];
+                    role = 'doctor';
+                } else {
+                    const [admins] = await db.query('SELECT * FROM admins WHERE email = ?', [email]);
+                    if (admins.length > 0) {
+                        user = admins[0];
+                        role = 'admin';
+                    }
                 }
             }
         }
 
         if (!user) {
-            // Auto-register new user as a patient
+            // Auto-register new user
             const placeholderPassword = await bcrypt.hash(googleId || Math.random().toString(36), 10);
-            const [result] = await db.query(
-                'INSERT INTO patients (fullName, email, password, role, status, authType, isVerified) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [fullName, email, placeholderPassword, 'patient', 'active', 'google', true]
+            
+            // Insert into users table
+            const [userResult] = await db.query(
+                'INSERT INTO users (fullName, email, password, role, status) VALUES (?, ?, ?, ?, ?)',
+                [fullName, email, placeholderPassword, 'patient', 'active']
             );
             
-            const newUserId = result.insertId;
+            const newUserId = userResult.insertId;
             const newRole = 'patient';
 
+            // Also insert into patients table with same ID
+            await db.query(
+                'INSERT INTO patients (id, fullName, email, password, role, status, authType, isVerified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [newUserId, fullName, email, placeholderPassword, 'patient', 'active', 'google', true]
+            );
+            
             // Sign Token for newly created user
             return jwt.sign(
                 { id: newUserId, role: newRole },
@@ -411,7 +424,7 @@ const googleLogin = async (req, res, next) => {
             );
         }
 
-        const userId = user[idField];
+        const userId = user.id;
         const finalRole = user.role || role;
 
         // Sign Token for existing user
@@ -472,9 +485,9 @@ const sendVerificationOtp = async (req, res, next) => {
         if (!email) return res.status(400).json({ success: false, message: 'Email required' });
 
         // Check if email exists in any table
-        const [patient] = await db.query('SELECT patient_id FROM patients WHERE email = ?', [email]);
-        const [doctor] = await db.query('SELECT doctor_id FROM doctors WHERE email = ?', [email]);
-        const [admin] = await db.query('SELECT admin_id FROM admins WHERE email = ?', [email]);
+        const [patient] = await db.query('SELECT id FROM patients WHERE email = ?', [email]);
+        const [doctor] = await db.query('SELECT id FROM doctors WHERE email = ?', [email]);
+        const [admin] = await db.query('SELECT id FROM admins WHERE email = ?', [email]);
 
         if (patient.length > 0 || doctor.length > 0 || admin.length > 0) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
@@ -482,7 +495,7 @@ const sendVerificationOtp = async (req, res, next) => {
 
         // Check if phone exists (if provided during initial step)
         if (phone) {
-            const [existingPhone] = await db.query('SELECT patient_id FROM patients WHERE phone = ?', [phone]);
+            const [existingPhone] = await db.query('SELECT id FROM patients WHERE phone = ?', [phone]);
             if (existingPhone.length > 0) {
                 return res.status(400).json({ success: false, message: 'Phone number already registered' });
             }
@@ -574,12 +587,20 @@ const registerUserFinal = async (req, res, next) => {
 
         const authType = googleId ? 'google' : 'email';
 
-        const [result] = await db.query(
-            'INSERT INTO patients (fullName, email, phone, age, gender, password, role, status, authType, isVerified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [fullName, email, phone, age, gender, hashedPassword, 'patient', 'active', authType, true]
+        // Insert into users table first
+        const [userResult] = await db.query(
+            'INSERT INTO users (fullName, email, phone, password, role, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [fullName, email, phone, hashedPassword, 'patient', 'active']
+        );
+        
+        const userId = userResult.insertId;
+
+        // Insert into patients table with same ID
+        await db.query(
+            'INSERT INTO patients (id, fullName, email, phone, age, gender, password, role, status, authType, isVerified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [userId, fullName, email, phone, age, gender, hashedPassword, 'patient', 'active', authType, true]
         );
 
-        const userId = result.insertId;
         const role = 'patient';
 
         // Emit real-time event to Admin
@@ -630,7 +651,7 @@ const registerUserFinal = async (req, res, next) => {
 const getAllPatients = async (req, res, next) => {
     try {
         const [patients] = await db.query(
-            'SELECT patient_id as id, fullName, email, phone, status, created_at FROM patients ORDER BY created_at DESC'
+            'SELECT id, fullName, email, phone, status, created_at FROM patients ORDER BY created_at DESC'
         );
         res.json({ success: true, count: patients.length, data: patients });
     } catch (error) {

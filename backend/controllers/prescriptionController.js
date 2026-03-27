@@ -17,7 +17,7 @@ const createPrescription = async (req, res, next) => {
 
         // 1. Validate appointment belongs to doctor
         const [appointment] = await pool.query(
-            "SELECT * FROM appointments WHERE appointment_id = ? AND doctor_id = ?",
+            "SELECT * FROM appointments WHERE id = ? AND doctor_id = ?",
             [appointmentId, doctorId]
         );
 
@@ -36,8 +36,8 @@ const createPrescription = async (req, res, next) => {
         }
 
         // 3. Get Patient and Doctor Info for PDF
-        const [[patient]] = await pool.query("SELECT fullName, email FROM patients WHERE patient_id = ?", [patientId]);
-        const [[doctor]] = await pool.query("SELECT fullName, specialization FROM doctors WHERE doctor_id = ?", [doctorId]);
+        const [[patient]] = await pool.query("SELECT fullName, email FROM patients WHERE id = ?", [patientId]);
+        const [[doctor]] = await pool.query("SELECT fullName, specialization FROM doctors WHERE id = ?", [doctorId]);
 
         // 4. Generate PDF filename
         const filename = `Prescription_${appointmentId}_${Date.now()}.pdf`;
@@ -170,8 +170,8 @@ const getPrescriptions = async (req, res) => {
             query = `
                 SELECT pr.*, p.fullName as patientName, a.appointment_date, a.time_slot as appointment_time
                 FROM prescriptions pr
-                JOIN patients p ON pr.patient_id = p.patient_id
-                JOIN appointments a ON pr.appointment_id = a.appointment_id
+                JOIN patients p ON pr.patient_id = p.id
+                JOIN appointments a ON pr.appointment_id = a.id
                 WHERE pr.doctor_id = ?
                 ORDER BY pr.created_at DESC
             `;
@@ -180,9 +180,9 @@ const getPrescriptions = async (req, res) => {
             query = `
                 SELECT pr.*, p.fullName as patientName, d.fullName as doctorName, d.specialization, a.appointment_date, a.time_slot as appointment_time
                 FROM prescriptions pr
-                JOIN patients p ON pr.patient_id = p.patient_id
-                JOIN doctors d ON pr.doctor_id = d.doctor_id
-                JOIN appointments a ON pr.appointment_id = a.appointment_id
+                JOIN patients p ON pr.patient_id = p.id
+                JOIN doctors d ON pr.doctor_id = d.id
+                JOIN appointments a ON pr.appointment_id = a.id
                 ORDER BY pr.created_at DESC
             `;
             params = [];
@@ -190,8 +190,8 @@ const getPrescriptions = async (req, res) => {
             query = `
                 SELECT pr.*, d.fullName as doctorName, d.specialization, a.appointment_date, a.time_slot as appointment_time
                 FROM prescriptions pr
-                JOIN doctors d ON pr.doctor_id = d.doctor_id
-                JOIN appointments a ON pr.appointment_id = a.appointment_id
+                JOIN doctors d ON pr.doctor_id = d.id
+                JOIN appointments a ON pr.appointment_id = a.id
                 WHERE pr.patient_id = ?
                 ORDER BY pr.created_at DESC
             `;

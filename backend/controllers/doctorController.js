@@ -9,9 +9,9 @@ const getDoctorStats = async (req, res, next) => {
         let doctorId = req.user.id;
         
         // Safety Check: Verify the doctor exists
-        const [doc] = await db.query('SELECT doctor_id FROM doctors WHERE doctor_id = ?', [doctorId]);
+        const [doc] = await db.query('SELECT id FROM doctors WHERE id = ?', [doctorId]);
         if (doc.length > 0) {
-            doctorId = doc[0].doctor_id;
+            doctorId = doc[0].id;
         }
 
         const [patients] = await db.query(
@@ -40,9 +40,9 @@ const getDoctorStats = async (req, res, next) => {
         );
 
         const [recentlyViewed] = await db.query(`
-            SELECT DISTINCT p.patient_id as id, p.fullName as name 
+            SELECT DISTINCT p.id as id, p.fullName as name 
             FROM appointments a 
-            JOIN patients p ON a.patient_id = p.patient_id 
+            JOIN patients p ON a.patient_id = p.id 
             WHERE a.doctor_id = ? 
             ORDER BY a.appointment_date DESC 
             LIMIT 3
@@ -69,7 +69,7 @@ const getDoctorStats = async (req, res, next) => {
 const getProfile = async (req, res, next) => {
     try {
         const [doctor] = await db.query(
-            'SELECT doctor_id as id, fullName, email, specialization as department, available_days, available_time_slots FROM doctors WHERE doctor_id = ?',
+            'SELECT id, fullName, email, specialization as department, available_days, available_time_slots FROM doctors WHERE id = ?',
             [req.user.id]
         );
 
@@ -90,15 +90,15 @@ const getAppointments = async (req, res, next) => {
         const { date } = req.query;
         let query = `
             SELECT
-                a.appointment_id as id,
-                p.patient_id,
+                a.id,
+                p.id as patient_id,
                 p.fullName as patientName,
                 a.appointment_date,
                 a.time_slot as appointment_time,
                 a.status,
                 'Follow-up' as type
             FROM appointments a
-            JOIN patients p ON a.patient_id = p.patient_id
+            JOIN patients p ON a.patient_id = p.id
             WHERE a.doctor_id = ?
         `;
 
@@ -134,7 +134,7 @@ const updateAppointmentStatus = async (req, res, next) => {
         const doctorId = doc[0]?.doctor_id || req.user.id;
 
         const [result] = await db.query(
-            'UPDATE appointments SET status = ? WHERE appointment_id = ? AND doctor_id = ?',
+            'UPDATE appointments SET status = ? WHERE id = ? AND doctor_id = ?',
             [status, appointmentId, doctorId]
         );
 
@@ -169,15 +169,15 @@ const updateAppointmentStatus = async (req, res, next) => {
 // @desc    Get unique patients this doctor has seen
 const getPatients = async (req, res, next) => {
     try {
-        const [doc] = await db.query('SELECT doctor_id FROM doctors WHERE doctor_id = ?', [req.user.id]);
-        const doctorId = req.params.doctorId || doc[0]?.doctor_id || req.user.id;
+        const [doc] = await db.query('SELECT id FROM doctors WHERE id = ?', [req.user.id]);
+        const doctorId = req.params.doctorId || doc[0]?.id || req.user.id;
         
         // User requested query: SELECT DISTINCT p.* FROM patients p JOIN appointments a ON p.id = a.patient_id WHERE a.doctor_id = ?;
         // Note: Our schema uses patient_id instead of id.
         const query = `
-            SELECT DISTINCT p.patient_id as id, p.fullName, p.email, p.phone, p.gender, p.dob, p.created_at
+            SELECT DISTINCT p.id as id, p.fullName, p.email, p.phone, p.gender, p.dob, p.created_at
             FROM patients p
-            JOIN appointments a ON p.patient_id = a.patient_id
+            JOIN appointments a ON p.id = a.patient_id
             WHERE a.doctor_id = ?
             ORDER BY p.fullName ASC
         `;
@@ -219,7 +219,7 @@ const getDoctorsByDepartment = async (req, res, next) => {
         
         // Fix: Case-insensitive matching in query or filter
         const query = `
-            SELECT doctor_id as id, fullName, specialization as department, available_days, available_time_slots, created_at
+            SELECT id, fullName, specialization as department, available_days, available_time_slots, created_at
             FROM doctors 
             WHERE LOWER(specialization) = LOWER(?)
             ORDER BY fullName ASC
@@ -246,7 +246,7 @@ const getDoctorsByDepartment = async (req, res, next) => {
 const getAllDoctors = async (req, res, next) => {
     try {
         const query = `
-            SELECT doctor_id as id, fullName, email, phone, gender, specialization as department, 
+            SELECT id, fullName, email, phone, gender, specialization as department, 
                    experience, fees as fee, available_days, available_time_slots, profile_image, created_at
             FROM doctors 
             ORDER BY fullName ASC
@@ -283,7 +283,7 @@ const rescheduleAppointment = async (req, res, next) => {
         }
 
         const [result] = await db.query(
-            'UPDATE appointments SET appointment_date = ?, time_slot = ?, status = "confirmed" WHERE appointment_id = ? AND doctor_id = ?',
+            'UPDATE appointments SET appointment_date = ?, time_slot = ?, status = "confirmed" WHERE id = ? AND doctor_id = ?',
             [date, timeSlot, appointmentId, req.user.id]
         );
 
@@ -296,11 +296,11 @@ const rescheduleAppointment = async (req, res, next) => {
             const socketData = { appointmentId, date, timeSlot, status: 'confirmed' };
             global.io.emit('appointmentUpdated', socketData);
             
-            const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE doctor_id = ?', [req.user.id]);
+            const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE id = ?', [req.user.id]);
             const doctorName = docInfo[0]?.fullName || 'Doctor';
             
             // Get patient details for notification
-            const [appt] = await db.query('SELECT patient_id FROM appointments WHERE appointment_id = ?', [appointmentId]);
+            const [appt] = await db.query('SELECT patient_id FROM appointments WHERE id = ?', [appointmentId]);
             if (appt.length > 0) {
                 await createNotification(global.io, {
                     userId: appt[0].patient_id,
@@ -325,7 +325,7 @@ const startConsultation = async (req, res, next) => {
 
         // Verify it's confirmed first
         const [appt] = await db.query(
-            'SELECT status, patient_id FROM appointments WHERE appointment_id = ? AND doctor_id = ?',
+            'SELECT status, patient_id FROM appointments WHERE id = ? AND doctor_id = ?',
             [appointmentId, req.user.id]
         );
 
@@ -338,7 +338,7 @@ const startConsultation = async (req, res, next) => {
         }
 
         const [result] = await db.query(
-            'UPDATE appointments SET status = "in_progress" WHERE appointment_id = ? AND doctor_id = ?',
+            'UPDATE appointments SET status = "in_progress" WHERE id = ? AND doctor_id = ?',
             [appointmentId, req.user.id]
         );
 
@@ -348,7 +348,7 @@ const startConsultation = async (req, res, next) => {
 
         // Notify patient
         if (global.io) {
-            const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE doctor_id = ?', [req.user.id]);
+            const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE id = ?', [req.user.id]);
             const doctorName = docInfo[0]?.fullName || 'Doctor';
 
             global.io.emit('appointmentStatusUpdated', { appointmentId, status: 'in_progress', doctorId: req.user.id });
@@ -373,7 +373,7 @@ const completeConsultation = async (req, res, next) => {
         const appointmentId = req.params.id;
 
         const [result] = await db.query(
-            'UPDATE appointments SET status = "completed" WHERE appointment_id = ? AND doctor_id = ?',
+            'UPDATE appointments SET status = "completed" WHERE id = ? AND doctor_id = ?',
             [appointmentId, req.user.id]
         );
 
@@ -383,10 +383,10 @@ const completeConsultation = async (req, res, next) => {
 
         // Notify patient
         if (global.io) {
-            const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE doctor_id = ?', [req.user.id]);
+            const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE id = ?', [req.user.id]);
             const doctorName = docInfo[0]?.fullName || 'Doctor';
 
-            const [appt] = await db.query('SELECT patient_id FROM appointments WHERE appointment_id = ?', [appointmentId]);
+            const [appt] = await db.query('SELECT patient_id FROM appointments WHERE id = ?', [appointmentId]);
             if (appt.length > 0) {
                 global.io.emit('appointmentStatusUpdated', { appointmentId, status: 'completed', doctorId: req.user.id });
                 await createNotification(global.io, {
@@ -446,7 +446,7 @@ const getPatientHistory = async (req, res, next) => {
 
         // Get notes
         const [notes] = await db.query(
-            'SELECT n.*, d.fullName as doctorName FROM patient_notes n JOIN doctors d ON n.doctor_id = d.doctor_id WHERE n.patient_id = ? ORDER BY n.created_at DESC',
+            'SELECT n.*, d.fullName as doctorName FROM patient_notes n JOIN doctors d ON n.doctor_id = d.id WHERE n.patient_id = ? ORDER BY n.created_at DESC',
             [patientId]
         );
 

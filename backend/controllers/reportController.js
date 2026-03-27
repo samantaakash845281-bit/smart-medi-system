@@ -13,8 +13,8 @@ const exportAdminFinancial = async (req, res, next) => {
         const [transactions] = await db.query(`
             SELECT py.*, pat.fullName AS patientName, d.fullName AS doctorName
             FROM payments py
-            JOIN patients pat ON py.patient_id = pat.patient_id
-            JOIN doctors d ON py.doctor_id = d.doctor_id
+            JOIN patients pat ON py.patient_id = pat.id
+            JOIN doctors d ON py.doctor_id = d.id
             ORDER BY py.payment_date DESC
         `);
 
@@ -57,13 +57,13 @@ const exportDoctorSummary = async (req, res, next) => {
         const [recentAppointments] = await db.query(`
             SELECT a.*, pat.fullName as patientName
             FROM appointments a
-            JOIN patients pat ON a.patient_id = pat.patient_id
+            JOIN patients pat ON a.patient_id = pat.id
             WHERE a.doctor_id = ?
             ORDER BY a.appointment_date DESC, a.time_slot DESC
             LIMIT 50
         `, [doctor_id]);
 
-        const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE doctor_id = ?', [doctor_id]);
+        const [docInfo] = await db.query('SELECT fullName FROM doctors WHERE id = ?', [doctor_id]);
         const doctorName = docInfo[0]?.fullName || 'Doctor';
 
         const filePath = await generateDoctorSummaryReport({
@@ -88,7 +88,7 @@ const exportPatientHistory = async (req, res, next) => {
         const [appointments] = await db.query(`
             SELECT a.*, d.fullName as doctorName, d.specialization as department
             FROM appointments a
-            JOIN doctors d ON a.doctor_id = d.doctor_id
+            JOIN doctors d ON a.doctor_id = d.id
             WHERE a.patient_id = ?
             ORDER BY a.appointment_date DESC
         `, [patient_id]);
@@ -96,12 +96,12 @@ const exportPatientHistory = async (req, res, next) => {
         const [prescriptions] = await db.query(`
             SELECT p.*, d.fullName as doctorName
             FROM prescriptions p
-            JOIN doctors d ON p.doctor_id = d.doctor_id
+            JOIN doctors d ON p.doctor_id = d.id
             WHERE p.patient_id = ?
             ORDER BY p.created_at DESC
         `, [patient_id]);
 
-        const [patInfo] = await db.query('SELECT fullName FROM patients WHERE patient_id = ?', [patient_id]);
+        const [patInfo] = await db.query('SELECT fullName FROM patients WHERE id = ?', [patient_id]);
         const patientName = patInfo[0]?.fullName || 'Patient';
 
         const filePath = await generatePatientHistoryReport({

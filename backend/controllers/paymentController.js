@@ -95,9 +95,9 @@ const verifyPayment = async (req, res, next) => {
             SELECT a.*, d.fullName as doctorName, d.email as doctorEmail, d.specialization as department, 
                    p.fullName as patientName, p.email as patientEmail 
             FROM appointments a
-            JOIN doctors d ON a.doctor_id = d.doctor_id
-            JOIN patients p ON a.patient_id = p.patient_id
-            WHERE a.appointment_id = ?
+            JOIN doctors d ON a.doctor_id = d.id
+            JOIN patients p ON a.patient_id = p.id
+            WHERE a.id = ?
         `, [bookingId]);
 
         if (appointmentRows.length === 0) {
@@ -224,8 +224,8 @@ const getAllPayments = async (req, res, next) => {
                 pat.fullName as patientName,
                 doc.fullName as doctorName
             FROM payments p
-            JOIN patients pat ON p.patient_id = pat.patient_id
-            JOIN doctors doc ON p.doctor_id = doc.doctor_id
+            JOIN patients pat ON p.patient_id = pat.id
+            JOIN doctors doc ON p.doctor_id = doc.id
             ORDER BY p.payment_date DESC
         `;
         const [payments] = await db.query(query);
@@ -247,7 +247,7 @@ const updatePaymentStatus = async (req, res, next) => {
         if (status === 'Verified') {
             const [p] = await db.query('SELECT appointment_id FROM payments WHERE payment_id = ?', [id]);
             if (p.length > 0) {
-                await db.query('UPDATE appointments SET status = "confirmed", booking_status = "Confirmed" WHERE appointment_id = ?', [p[0].appointment_id]);
+                await db.query('UPDATE appointments SET status = "confirmed", booking_status = "Confirmed" WHERE id = ?', [p[0].appointment_id]);
             }
         }
 
@@ -277,7 +277,7 @@ const confirmPayment = async (req, res, next) => {
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [patient_id, doctor_id, appointment_id, amount, 'UPI', transaction_id, 'Pending']);
 
-        await db.query('UPDATE appointments SET status = "confirmed", booking_status = "Confirmed" WHERE appointment_id = ?', [appointment_id]);
+        await db.query('UPDATE appointments SET status = "confirmed", booking_status = "Confirmed" WHERE id = ?', [appointment_id]);
 
         // 4. Background: Send Email & PDF (Best effort for manual too)
         try {
@@ -285,9 +285,9 @@ const confirmPayment = async (req, res, next) => {
                 SELECT a.*, d.fullName as doctorName, d.email as doctorEmail, d.specialization as department, 
                        p.fullName as patientName, p.email as patientEmail 
                 FROM appointments a
-                JOIN doctors d ON a.doctor_id = d.doctor_id
-                JOIN patients p ON a.patient_id = p.patient_id
-                WHERE a.appointment_id = ?
+                JOIN doctors d ON a.doctor_id = d.id
+                JOIN patients p ON a.patient_id = p.id
+                WHERE a.id = ?
             `, [appointment_id]);
 
             if (rows.length > 0) {
@@ -354,8 +354,8 @@ const getPatientPayments = async (req, res, next) => {
                 d.fullName as doctorName,
                 a.appointment_date
             FROM payments p
-            JOIN doctors d ON p.doctor_id = d.doctor_id
-            JOIN appointments a ON p.appointment_id = a.appointment_id
+            JOIN doctors d ON p.doctor_id = d.id
+            JOIN appointments a ON p.appointment_id = a.id
             WHERE p.patient_id = ?
             ORDER BY p.payment_date DESC
         `;
@@ -373,11 +373,11 @@ const autoPay = async (req, res, next) => {
         const { payment_id } = req.body;
         await db.query('UPDATE payments SET payment_status = "Paid", payment_date = NOW() WHERE payment_id = ?', [payment_id]);
         const [p] = await db.query(`
-            SELECT p.*, d.fullName as doctorName FROM payments p JOIN doctors d ON p.doctor_id = d.doctor_id WHERE p.payment_id = ?
+            SELECT p.*, d.fullName as doctorName FROM payments p JOIN doctors d ON p.doctor_id = d.id WHERE p.payment_id = ?
         `, [payment_id]);
         if (p.length > 0) {
             const bill = p[0];
-            await db.query('UPDATE appointments SET status = "confirmed", booking_status = "Confirmed" WHERE appointment_id = ?', [bill.appointment_id]);
+            await db.query('UPDATE appointments SET status = "confirmed", booking_status = "Confirmed" WHERE id = ?', [bill.appointment_id]);
             if (global.io) {
                 global.io.emit('paymentCompleted', { id: payment_id, status: 'Paid' });
                 global.io.to('admin').emit('paymentCompleted', { id: payment_id, status: 'Paid' });
@@ -401,7 +401,7 @@ const submitManualPayment = async (req, res, next) => {
         }
 
         // 1. Check if appointment exists
-        const [appt] = await db.query('SELECT doctor_id FROM appointments WHERE appointment_id = ?', [appointment_id]);
+        const [appt] = await db.query('SELECT doctor_id FROM appointments WHERE id = ?', [appointment_id]);
         if (appt.length === 0) {
             return res.status(404).json({ success: false, message: 'Appointment not found' });
         }
@@ -416,7 +416,7 @@ const submitManualPayment = async (req, res, next) => {
         `, [patient_id, doctor_id, appointment_id, amount, method, transaction_id, 'Pending', proof_url]);
 
         // 3. Mark appointment confirmed (as per current UI flow)
-        await db.query('UPDATE appointments SET status = "confirmed", booking_status = "Confirmed" WHERE appointment_id = ?', [appointment_id]);
+        await db.query('UPDATE appointments SET status = "confirmed", booking_status = "Confirmed" WHERE id = ?', [appointment_id]);
 
         // 4. Notify Admin
         if (global.io) {
@@ -457,8 +457,8 @@ const getDoctorPayments = async (req, res, next) => {
                 pat.fullName as patientName,
                 a.appointment_date
             FROM payments p
-            JOIN patients pat ON p.patient_id = pat.patient_id
-            JOIN appointments a ON p.appointment_id = a.appointment_id
+            JOIN patients pat ON p.patient_id = pat.id
+            JOIN appointments a ON p.appointment_id = a.id
             WHERE p.doctor_id = ?
             ORDER BY p.payment_date DESC
         `;

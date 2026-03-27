@@ -30,8 +30,8 @@ async function masterSeed() {
         for (let i = 0; i < doctorEmails.length; i++) {
             await db.query('INSERT IGNORE INTO doctors (fullName, email, password, specialization) VALUES (?, ?, ?, ?)', 
                 [doctorDetails[i][0], doctorEmails[i], password, doctorDetails[i][1]]);
-            const [doc] = await db.query('SELECT doctor_id FROM doctors WHERE email = ?', [doctorEmails[i]]);
-            doctorIds.push(doc[0].doctor_id);
+            const [doc] = await db.query('SELECT id FROM doctors WHERE email = ?', [doctorEmails[i]]);
+            doctorIds.push(doc[0].id);
         }
 
         // 3. Ensure Patients
@@ -40,8 +40,8 @@ async function masterSeed() {
         for (let i = 0; i < patientEmails.length; i++) {
             await db.query('INSERT IGNORE INTO patients (fullName, email, password) VALUES (?, ?, ?)', 
                 [`Patient ${i+1}`, patientEmails[i], password]);
-            const [pat] = await db.query('SELECT patient_id FROM patients WHERE email = ?', [patientEmails[i]]);
-            patientIds.push(pat[0].patient_id);
+            const [pat] = await db.query('SELECT id FROM patients WHERE email = ?', [patientEmails[i]]);
+            patientIds.push(pat[0].id);
         }
 
         // 4. Seed Transactional Data

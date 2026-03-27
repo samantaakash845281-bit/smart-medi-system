@@ -33,14 +33,14 @@ const getProfile = async (req, res, next) => {
         const role = req.user.role; // Extract role from verified token
 
         let tableName = 'patients';
-        let idField = 'patient_id';
+        let idField = 'id';
 
         if (role === 'doctor') {
             tableName = 'doctors';
-            idField = 'doctor_id';
+            idField = 'id';
         } else if (role === 'admin') {
             tableName = 'admins';
-            idField = 'admin_id';
+            idField = 'id';
         }
 
         const [users] = await db.query(
@@ -73,14 +73,14 @@ const updateProfile = async (req, res, next) => {
         }
 
         let tableName = 'patients';
-        let idField = 'patient_id';
+        let idField = 'id';
 
         if (role === 'doctor') {
             tableName = 'doctors';
-            idField = 'doctor_id';
+            idField = 'id';
         } else if (role === 'admin') {
             tableName = 'admins';
-            idField = 'admin_id';
+            idField = 'id';
         }
 
         const { fullName, phone, gender, dob, address, specialization, about } = req.body;

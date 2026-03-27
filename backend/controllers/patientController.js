@@ -9,7 +9,7 @@ const path = require('path');
 const getDoctors = async (req, res, next) => {
     try {
         const query = `
-            SELECT doctor_id as id, fullName, specialization, available_days, available_time_slots
+            SELECT id, fullName, specialization, available_days, available_time_slots
             FROM doctors 
             ORDER BY fullName ASC
         `;
@@ -54,8 +54,8 @@ const getPatientStats = async (req, res, next) => {
     try {
         // Resilient ID Resolution
         let patientId = req.user.id;
-        const [pat] = await db.query('SELECT patient_id FROM patients WHERE patient_id = ?', [patientId]);
-        if (pat.length > 0) patientId = pat[0].patient_id;
+        const [pat] = await db.query('SELECT id FROM patients WHERE id = ?', [patientId]);
+        if (pat.length > 0) patientId = pat[0].id;
 
         const [upcoming] = await db.query(
             'SELECT COUNT(*) as total FROM appointments WHERE patient_id = ? AND appointment_date >= CURDATE() AND status != "cancelled"',
@@ -101,8 +101,8 @@ const getPrescriptions = async (req, res, next) => {
             SELECT p.id, p.medicine_name, p.dosage, p.instructions, p.created_at,
                    d.fullName as doctorName, a.appointment_date
             FROM prescriptions p
-            JOIN doctors d ON p.doctor_id = d.doctor_id
-            JOIN appointments a ON p.appointment_id = a.appointment_id
+            JOIN doctors d ON p.doctor_id = d.id
+            JOIN appointments a ON p.appointment_id = a.id
             WHERE p.patient_id = ?
             ORDER BY p.created_at DESC
         `;
@@ -121,7 +121,7 @@ const getReports = async (req, res, next) => {
             SELECT r.id, r.report_type, r.report_file, r.created_at,
                    d.fullName as doctorName
             FROM reports r
-            JOIN doctors d ON r.doctor_id = d.doctor_id
+            JOIN doctors d ON r.doctor_id = d.id
             WHERE r.patient_id = ?
             ORDER BY r.created_at DESC
         `;
@@ -137,7 +137,7 @@ const getReports = async (req, res, next) => {
 const getProfile = async (req, res, next) => {
     try {
         const [users] = await db.query(
-            'SELECT patient_id as id, fullName, email FROM patients WHERE patient_id = ?',
+            'SELECT id, fullName, email FROM patients WHERE id = ?',
             [req.user.id]
         );
 
@@ -160,7 +160,7 @@ const updateProfile = async (req, res, next) => {
         }
 
         await db.query(
-            'UPDATE patients SET fullName = ? WHERE patient_id = ?',
+            'UPDATE patients SET fullName = ? WHERE id = ?',
             [fullName, req.user.id]
         );
 
@@ -201,16 +201,16 @@ const getMedicalHistory = async (req, res, next) => {
     try {
         // Resilient ID Resolution
         let patientId = req.params.patientId || req.user.id;
-        const [patUser] = await db.query('SELECT patient_id FROM patients WHERE patient_id = ?', [patientId]);
-        if (patUser.length > 0) patientId = patUser[0].patient_id;
+        const [patUser] = await db.query('SELECT id FROM patients WHERE id = ?', [patientId]);
+        if (patUser.length > 0) patientId = patUser[0].id;
 
         // User requested query: SELECT a.*, d.name AS doctorName, p.name AS patientName FROM appointments a JOIN doctors d ON a.doctor_id = d.id JOIN patients p ON a.patient_id = p.id WHERE a.patient_id = ? AND a.status = 'COMPLETED';
         // Note: Our schema uses fullName instead of name, and doctor_id/patient_id instead of id.
         const [rows] = await db.query(`
             SELECT a.*, d.fullName AS doctorName, p.fullName AS patientName
             FROM appointments a
-            JOIN doctors d ON a.doctor_id = d.doctor_id
-            JOIN patients p ON a.patient_id = p.patient_id
+            JOIN doctors d ON a.doctor_id = d.id
+            JOIN patients p ON a.patient_id = p.id
             WHERE a.patient_id = ?
             AND a.status = 'completed'
             ORDER BY a.appointment_date DESC
@@ -232,11 +232,11 @@ const getAppointmentDetail = async (req, res, next) => {
     try {
         const { id } = req.params;
         const query = `
-            SELECT a.appointment_id as id, a.appointment_date, a.time_slot as appointment_time, a.status, 
+            SELECT a.id, a.appointment_date, a.time_slot as appointment_time, a.status, 
                    d.fullName as doctorName, d.specialization as department
             FROM appointments a
-            JOIN doctors d ON a.doctor_id = d.doctor_id
-            WHERE a.appointment_id = ? AND a.patient_id = ?
+            JOIN doctors d ON a.doctor_id = d.id
+            WHERE a.id = ? AND a.patient_id = ?
         `;
         const [rows] = await db.query(query, [id, req.user.id]);
 
@@ -269,7 +269,7 @@ const updatePaymentStatus = async (req, res, next) => {
         }
 
         const [result] = await db.query(
-            "UPDATE appointments SET status = ?, booking_status = ? WHERE appointment_id = ? AND patient_id = ?",
+            "UPDATE appointments SET status = ?, booking_status = ? WHERE id = ? AND patient_id = ?",
             [finalStatus, finalStatus.charAt(0).toUpperCase() + finalStatus.slice(1), id, req.user.id]
         );
 
@@ -281,12 +281,12 @@ const updatePaymentStatus = async (req, res, next) => {
         if (status === 'paid' && global.io) {
                 // Fetch appointment details for socket payload
                 const [apptDetails] = await db.query(`
-                    SELECT a.appointment_id, a.patient_id, a.doctor_id, a.appointment_date, a.time_slot, a.amount,
+                    SELECT a.id, a.patient_id, a.doctor_id, a.appointment_date, a.time_slot, a.amount,
                            p.fullName as patientName, d.fullName as doctorName, d.specialization as department
                     FROM appointments a
-                    JOIN patients p ON a.patient_id = p.patient_id
-                    JOIN doctors d ON a.doctor_id = d.doctor_id
-                    WHERE a.appointment_id = ?
+                    JOIN patients p ON a.patient_id = p.id
+                    JOIN doctors d ON a.doctor_id = d.id
+                    WHERE a.id = ?
                 `, [id]);
 
                 if (apptDetails.length > 0) {

@@ -38,7 +38,7 @@ const getDashboardStats = async (req, res, next) => {
                 d.specialization as department, 
                 COUNT(*) as count 
             FROM appointments a 
-            JOIN doctors d ON a.doctor_id = d.doctor_id 
+            JOIN doctors d ON a.doctor_id = d.id 
             GROUP BY d.specialization
             LIMIT 5
         `);
@@ -66,7 +66,7 @@ const getDashboardStats = async (req, res, next) => {
 const getDoctors = async (req, res, next) => {
     try {
         const [doctors] = await db.query(
-            'SELECT doctor_id as id, fullName, email, specialization, available_days, available_time_slots FROM doctors ORDER BY fullName ASC'
+            'SELECT id, fullName, email, specialization, available_days, available_time_slots FROM doctors ORDER BY fullName ASC'
         );
         res.json({ success: true, data: doctors });
     } catch (error) {
@@ -79,7 +79,7 @@ const getDoctors = async (req, res, next) => {
 const getPatients = async (req, res, next) => {
     try {
         const [patients] = await db.query(
-            'SELECT patient_id as id, fullName, email, phone, status, created_at FROM patients WHERE status != "deleted" ORDER BY fullName ASC'
+            'SELECT id, fullName, email, phone, status, created_at FROM patients WHERE status != "deleted" ORDER BY fullName ASC'
         );
         res.json({ success: true, data: patients });
     } catch (error) {
@@ -170,7 +170,7 @@ const updateDoctor = async (req, res, next) => {
     try {
         const { fullName, email, specialization, available_days, available_time_slots } = req.body;
         await db.query(
-            'UPDATE doctors SET fullName = ?, email = ?, specialization = ?, available_days = ?, available_time_slots = ? WHERE doctor_id = ?',
+            'UPDATE doctors SET fullName = ?, email = ?, specialization = ?, available_days = ?, available_time_slots = ? WHERE id = ?',
             [fullName, email, specialization, available_days, available_time_slots, req.params.id]
         );
         res.json({ success: true, message: 'Doctor updated successfully' });
@@ -183,7 +183,7 @@ const updateDoctor = async (req, res, next) => {
 // @desc    Delete doctor
 const deleteDoctor = async (req, res, next) => {
     try {
-        await db.query('DELETE FROM doctors WHERE doctor_id = ?', [req.params.id]);
+        await db.query('DELETE FROM doctors WHERE id = ?', [req.params.id]);
         res.json({ success: true, message: 'Doctor deleted successfully' });
     } catch (error) {
         next(error);
@@ -194,7 +194,7 @@ const deleteDoctor = async (req, res, next) => {
 // @desc    Soft delete patient (for Undo support)
 const deletePatient = async (req, res, next) => {
     try {
-        await db.query('UPDATE patients SET status = "deleted" WHERE patient_id = ?', [req.params.id]);
+        await db.query('UPDATE patients SET status = "deleted" WHERE id = ?', [req.params.id]);
         res.json({ success: true, message: 'Patient moved to trash' });
     } catch (error) {
         next(error);
@@ -205,7 +205,7 @@ const deletePatient = async (req, res, next) => {
 // @desc    Restore a soft-deleted patient
 const restorePatient = async (req, res, next) => {
     try {
-        await db.query('UPDATE patients SET status = "active" WHERE patient_id = ?', [req.params.id]);
+        await db.query('UPDATE patients SET status = "active" WHERE id = ?', [req.params.id]);
         res.json({ success: true, message: 'Patient restored successfully' });
     } catch (error) {
         next(error);
@@ -218,11 +218,11 @@ const getAllAppointments = async (req, res, next) => {
     try {
         const query = `
             SELECT 
-                a.appointment_id as id,
+                a.id,
                 p.fullName as patientName,
-                p.patient_id as patient_id,
+                p.id as patient_id,
                 d.fullName as doctorName,
-                d.doctor_id as doctor_id,
+                d.id as doctor_id,
                 d.specialization as department,
                 a.appointment_date,
                 a.time_slot as appointment_time,
@@ -230,9 +230,9 @@ const getAllAppointments = async (req, res, next) => {
                 COALESCE(py.payment_status, 'Unpaid') as payment_status,
                 a.created_at
             FROM appointments a
-            JOIN patients p ON a.patient_id = p.patient_id
-            JOIN doctors d ON a.doctor_id = d.doctor_id
-            LEFT JOIN payments py ON a.appointment_id = py.appointment_id
+            JOIN patients p ON a.patient_id = p.id
+            JOIN doctors d ON a.doctor_id = d.id
+            LEFT JOIN payments py ON a.id = py.appointment_id
             ORDER BY a.appointment_date DESC, a.time_slot DESC
         `;
         const [appointments] = await db.query(query);
@@ -249,7 +249,7 @@ const updateAppointmentStatus = async (req, res, next) => {
         const { status } = req.body;
         const appointmentId = req.params.id;
 
-        await db.query('UPDATE appointments SET status = ? WHERE appointment_id = ?', [status, appointmentId]);
+        await db.query('UPDATE appointments SET status = ? WHERE id = ?', [status, appointmentId]);
 
         // If admin confirms, also mark payment as verified
         if (status === 'confirmed') {
@@ -259,7 +259,7 @@ const updateAppointmentStatus = async (req, res, next) => {
         // Notify patient and doctor
         const io = req.app.get('socketio');
         if (io) {
-            const [appt] = await db.query('SELECT patient_id, doctor_id FROM appointments WHERE appointment_id = ?', [appointmentId]);
+            const [appt] = await db.query('SELECT patient_id, doctor_id FROM appointments WHERE id = ?', [appointmentId]);
             if (appt.length > 0) {
                 const { patient_id, doctor_id } = appt[0];
                 const payload = { id: appointmentId, appointment_id: appointmentId, status };
@@ -293,7 +293,7 @@ const updateAppointmentStatus = async (req, res, next) => {
 // @desc    Delete appointment
 const deleteAppointment = async (req, res, next) => {
     try {
-        await db.query('DELETE FROM appointments WHERE appointment_id = ?', [req.params.id]);
+        await db.query('DELETE FROM appointments WHERE id = ?', [req.params.id]);
         res.json({ success: true, message: 'Appointment deleted successfully' });
     } catch (error) {
         next(error);
@@ -325,10 +325,10 @@ const getReportsStats = async (req, res, next) => {
         
         // Get recent appointments
         const [recentAppts] = await db.query(`
-            SELECT a.appointment_id, p.fullName as patientName, d.fullName as doctorName, a.status 
+            SELECT a.id, p.fullName as patientName, d.fullName as doctorName, a.status 
             FROM appointments a 
-            JOIN patients p ON a.patient_id = p.patient_id 
-            JOIN doctors d ON a.doctor_id = d.doctor_id 
+            JOIN patients p ON a.patient_id = p.id 
+            JOIN doctors d ON a.doctor_id = d.id 
             ORDER BY a.created_at DESC LIMIT 5
         `);
 
@@ -358,7 +358,7 @@ const getReportsStats = async (req, res, next) => {
 // @desc    Get admin profile
 const getSettings = async (req, res, next) => {
     try {
-        const [admin] = await db.query('SELECT admin_id as id, fullName, email FROM admins WHERE admin_id = ?', [req.user.id]);
+        const [admin] = await db.query('SELECT id, fullName, email FROM admins WHERE id = ?', [req.user.id]);
         res.json({ success: true, data: admin[0] });
     } catch (error) {
         next(error);
@@ -372,7 +372,7 @@ const updateSettings = async (req, res, next) => {
         const { fullName, email, currentPassword, newPassword } = req.body;
 
         // 1. Verify current password
-        const [admin] = await db.query('SELECT password FROM admins WHERE admin_id = ?', [req.user.id]);
+        const [admin] = await db.query('SELECT password FROM admins WHERE id = ?', [req.user.id]);
         if (admin.length === 0) return res.status(404).json({ success: false, message: 'Admin not found' });
 
         const isMatch = await bcrypt.compare(currentPassword, admin[0].password);
@@ -383,9 +383,9 @@ const updateSettings = async (req, res, next) => {
         // 2. Update logic
         if (newPassword) {
             const hashedPassword = await bcrypt.hash(newPassword, 10);
-            await db.query('UPDATE admins SET fullName = ?, email = ?, password = ? WHERE admin_id = ?', [fullName, email, hashedPassword, req.user.id]);
+            await db.query('UPDATE admins SET fullName = ?, email = ?, password = ? WHERE id = ?', [fullName, email, hashedPassword, req.user.id]);
         } else {
-            await db.query('UPDATE admins SET fullName = ?, email = ? WHERE admin_id = ?', [fullName, email, req.user.id]);
+            await db.query('UPDATE admins SET fullName = ?, email = ? WHERE id = ?', [fullName, email, req.user.id]);
         }
         res.json({ success: true, message: 'Settings updated successfully' });
     } catch (error) {
@@ -398,7 +398,7 @@ const updateSettings = async (req, res, next) => {
 const getDoctorDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const [doctor] = await db.query('SELECT * FROM doctors WHERE doctor_id = ?', [id]);
+        const [doctor] = await db.query('SELECT * FROM doctors WHERE id = ?', [id]);
         
         if (doctor.length === 0) {
             return res.status(404).json({ success: false, message: "Doctor not found" });
@@ -418,13 +418,13 @@ const getDoctorDetails = async (req, res, next) => {
 
         const [recentAppointments] = await db.query(`
             SELECT 
-                a.appointment_id as id,
+                a.id,
                 p.fullName as patientName,
                 a.appointment_date,
                 a.time_slot as appointment_time,
                 a.status
             FROM appointments a
-            JOIN patients p ON a.patient_id = p.patient_id
+            JOIN patients p ON a.patient_id = p.id
             WHERE a.doctor_id = ?
             ORDER BY a.appointment_date DESC, a.time_slot DESC
             LIMIT 10
@@ -451,7 +451,7 @@ const getDoctorDetails = async (req, res, next) => {
 const getPatientDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const [patient] = await db.query('SELECT * FROM patients WHERE patient_id = ?', [id]);
+        const [patient] = await db.query('SELECT * FROM patients WHERE id = ?', [id]);
 
         if (patient.length === 0) {
             return res.status(404).json({ success: false, message: "Patient not found" });
@@ -463,14 +463,14 @@ const getPatientDetails = async (req, res, next) => {
 
         const [medicalHistory] = await db.query(`
             SELECT 
-                a.appointment_id as id,
+                a.id,
                 d.fullName as doctorName,
                 d.specialization,
                 a.appointment_date,
                 a.time_slot as appointment_time,
                 a.status
             FROM appointments a
-            JOIN doctors d ON a.doctor_id = d.doctor_id
+            JOIN doctors d ON a.doctor_id = d.id
             WHERE a.patient_id = ?
             ORDER BY a.appointment_date DESC
         `, [id]);
@@ -478,7 +478,7 @@ const getPatientDetails = async (req, res, next) => {
         const [prescriptions] = await db.query(`
             SELECT p.*, d.fullName as doctorName
             FROM prescriptions p
-            JOIN doctors d ON p.doctor_id = d.doctor_id
+            JOIN doctors d ON p.doctor_id = d.id
             WHERE p.patient_id = ?
             ORDER BY p.created_at DESC
         `, [id]);
