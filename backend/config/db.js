@@ -3,15 +3,47 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Create a connection pool instead of a single connection
+const getPoolConfig = () => {
+    if (process.env.DATABASE_URL) {
+        try {
+            const dbUrl = new URL(process.env.DATABASE_URL);
+            return {
+                host: dbUrl.hostname,
+                user: dbUrl.username,
+                password: dbUrl.password,
+                database: dbUrl.pathname.replace("/", ""),
+                port: dbUrl.port || 3306,
+                ssl: { rejectUnauthorized: false } // Required for Railway/Render
+            };
+        } catch (error) {
+            console.error("Failed to parse DATABASE_URL:", error);
+        }
+    }
+
+    return {
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME || 'smartmedi_db',
+        port: process.env.DB_PORT || 3306
+    };
+};
+
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'smartmedi_db',
+    ...getPoolConfig(),
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 });
+
+// Basic test to verify connection
+pool.getConnection()
+    .then(connection => {
+        console.log('Database connected successfully');
+        connection.release();
+    })
+    .catch(err => {
+        console.error('Database connection failed:', err.message);
+    });
 
 module.exports = pool;
