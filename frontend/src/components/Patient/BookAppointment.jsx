@@ -269,7 +269,7 @@ export default function BookAppointment() {
                 amount: orderRes.amount,
                 currency: orderRes.currency,
                 name: "SmartMedi Hospital",
-                description: `Appointment with Dr. ${selectedDoctor?.name || selectedDoctor?.fullName}`,
+                description: `Appointment with ${selectedDoctor?.name || selectedDoctor?.fullName}`,
                 handler: (response) => handlePaymentSuccess(response, bookingId, bookingData),
                 prefill: {
                     name: user?.fullName || "",
@@ -644,7 +644,7 @@ export default function BookAppointment() {
                                                             </div>
                                                             <div>
                                                                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Treating Physician</p>
-                                                                <p className="font-bold text-lg leading-tight">Dr. {selectedDoctor?.name || selectedDoctor?.fullName}</p>
+                                                                <p className="font-bold text-lg leading-tight">{selectedDoctor?.name || selectedDoctor?.fullName}</p>
                                                             </div>
                                                         </div>
 

@@ -128,7 +128,7 @@ export default function RescheduleAppointment() {
                                 <Stethoscope className="w-12 h-12 text-primary-600" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-slate-900 dark:text-white">Dr. {appointment?.doctorName}</h3>
+                                <h3 className="text-xl font-black text-slate-900 dark:text-white">{appointment?.doctorName}</h3>
                                 <p className="text-primary-600 font-bold text-sm uppercase tracking-widest">{appointment?.department}</p>
                             </div>
                         </div>

@@ -14,7 +14,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: ["https://smart-medi-system.vercel.app", "http://localhost:3000"],
+    origin: ["https://smart-medi-system.vercel.app", "https://smartmedi-frontend.vercel.app", "http://localhost:3000", "http://localhost:5173"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
@@ -68,6 +68,7 @@ const io = new Server(server, {
         origin: (origin, callback) => {
             const whitelist = [
                 "https://smart-medi-system.vercel.app",
+                "https://smartmedi-frontend.vercel.app",
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://localhost:5174",

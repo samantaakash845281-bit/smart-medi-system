@@ -377,13 +377,44 @@ const googleLogin = async (req, res, next) => {
         }
 
         if (!user) {
-            return res.status(404).json({ success: false, message: 'User not registered. Please sign up.' });
+            // Auto-register new user as a patient
+            const placeholderPassword = await bcrypt.hash(googleId || Math.random().toString(36), 10);
+            const [result] = await db.query(
+                'INSERT INTO patients (fullName, email, password, role, status, authType, isVerified) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [fullName, email, placeholderPassword, 'patient', 'active', 'google', true]
+            );
+            
+            const newUserId = result.insertId;
+            const newRole = 'patient';
+
+            // Sign Token for newly created user
+            return jwt.sign(
+                { id: newUserId, role: newRole },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRE || '30d' },
+                (err, token) => {
+                    if (err) return next(err);
+                    res.json({
+                        success: true,
+                        message: 'Google registration and login successful',
+                        token: token,
+                        role: newRole,
+                        user: {
+                            id: newUserId,
+                            fullName: fullName,
+                            name: fullName,
+                            email: email,
+                            role: newRole
+                        }
+                    });
+                }
+            );
         }
 
         const userId = user[idField];
         const finalRole = user.role || role;
 
-        // Sign Token
+        // Sign Token for existing user
         jwt.sign(
             { id: userId, role: finalRole },
             process.env.JWT_SECRET,

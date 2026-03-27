@@ -218,7 +218,7 @@ export default function PatientDashboard() {
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-slate-900 dark:text-white text-sm">{med?.medicine_name || "Prescription"}</h4>
-                                        <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Dr. {med?.doctorName || 'Unknown'}</p>
+                                        <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{med?.doctorName || 'Unknown'}</p>
                                     </div>
                                 </div>
                                 <div className="text-right">

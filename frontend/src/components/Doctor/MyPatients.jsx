@@ -269,7 +269,7 @@ export default function MyPatients() {
                                                 <div key={n.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
                                                     <p className="text-sm text-slate-700 dark:text-slate-300 italic">"{n.note}"</p>
                                                     <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-700/50 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                        <span>Dr. {n.doctorName}</span>
+                                                        <span>{n.doctorName}</span>
                                                         <span>{(() => {
                                                             const d = new Date(n.appointment_date || n.date || n.created_at);
                                                             if (isNaN(d.getTime())) return "N/A";

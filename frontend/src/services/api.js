@@ -2,12 +2,7 @@ import axios from 'axios';
 
 // Dynamic Backend Port Discovery (5000 primary, 5001 failover)
 const getBaseUrl = () => {
-    // For local development, we want to be resilient to port shifts (5000/5001)
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        const savedPort = localStorage.getItem('backend_port') || '5000';
-        return `http://localhost:${savedPort}`;
-    }
-    return 'https://smart-medi-system.vercel.app'; // Production fallback
+    return import.meta.env.VITE_API_URL || 'http://localhost:5000';
 };
 
 export const BACKEND_URL = getBaseUrl();

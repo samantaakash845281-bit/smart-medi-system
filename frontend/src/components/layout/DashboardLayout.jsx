@@ -31,26 +31,7 @@ export default function DashboardLayout() {
 
     const { user } = api.useAuth ? api.useAuth() : { user: JSON.parse(sessionStorage.getItem('user')) };
 
-    useEffect(() => {
-        const handleBack = (event) => {
-            window.history.pushState(null, "", window.location.pathname);
-            openPopup({
-                title: 'Ready to leave?',
-                message: "Are you sure you want to logout? You'll need to sign in again to access your health records.",
-                confirmText: 'Log Out',
-                cancelText: 'Cancel',
-                onConfirm: confirmLogout,
-                type: 'confirm'
-            });
-        };
 
-        window.history.pushState(null, "", window.location.pathname);
-        window.addEventListener("popstate", handleBack);
-
-        return () => {
-            window.removeEventListener("popstate", handleBack);
-        };
-    }, []);
 
     useEffect(() => {
         fetchNotifications();
@@ -144,15 +125,7 @@ export default function DashboardLayout() {
         document.documentElement.classList.toggle('dark');
     };
 
-    const confirmLogout = () => {
-        // clear session specific to this tab ONLY
-        sessionStorage.removeItem("user");
-        sessionStorage.removeItem("token");
-        sessionStorage.removeItem("role");
 
-        // redirect to login
-        window.location.href = "/login";
-    };
 
     const getIcon = (type) => {
         switch (type) {

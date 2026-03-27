@@ -146,7 +146,7 @@ export default function MedicalHistory() {
                                             {title}
                                         </h3>
                                         <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-3">
-                                            Provided by Dr. {record.doctorName}
+                                            Provided by {record.doctorName}
                                         </p>
                                         <div className="flex gap-4">
                                             <span className="text-xs font-medium text-slate-400 italic">
