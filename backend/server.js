@@ -21,12 +21,24 @@ app.use(cors({
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Basic Route for testing
+// Use process.env.PORT for Render, fallback to 5000 for local development
+const PORT = process.env.PORT || 5000;
+
+// Root Route - Immediate response for Render health checks
 app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to Smart Medi API' });
+    res.json({ 
+        status: 'success', 
+        message: 'Smart Medi API is running',
+        environment: process.env.NODE_ENV || 'development'
+    });
 });
 
 // Health check route
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Basic Route for testing (redundant but kept for compatibility)
 app.get('/api', (req, res) => {
     res.json({ status: 'success', message: 'Smart Medi API is working' });
 });
@@ -114,87 +126,34 @@ io.on('connection', (socket) => {
     });
 });
 
-// Import Error Handler
+// Global Error Handler
 const { errorHandler } = require('./middleware/errorHandler');
 app.use(errorHandler);
 
-const { exec } = require('child_process');
+// Handle Uncaught Exceptions
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 /**
- * Safely kills any process running on a specific port (Windows only)
+ * Simplified Start Server
+ * Starts the server immediately on the assigned PORT.
+ * Render requires the app to listen on process.env.PORT.
  */
-const killPort = (port) => {
-    return new Promise((resolve) => {
-        if (process.platform !== 'win32') return resolve();
-
-        exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
-            if (!stdout) return resolve();
-
-            const lines = stdout.split('\n');
-            const pids = new Set();
-            lines.forEach(line => {
-                const parts = line.trim().split(/\s+/);
-                if (parts.length > 4) {
-                    const pid = parts[parts.length - 1];
-                    if (pid && !isNaN(pid) && pid !== '0') pids.add(pid);
-                }
-            });
-
-            if (pids.size === 0) return resolve();
-
-            const killPromises = Array.from(pids).map(pid => {
-                return new Promise((resKill) => {
-                    exec(`taskkill /F /PID ${pid}`, () => resKill());
-                });
-            });
-
-            Promise.all(killPromises).then(() => {
-                console.log(`Cleared port ${port} by terminating PIDs: ${Array.from(pids).join(', ')}`);
-                setTimeout(resolve, 1000); // Give OS time to release port
-            });
-        });
-    });
-};
-
-/**
- * Starts the server with dynamic port failover
- */
-const startServer = async (port) => {
-    // Only attempt to start if not already listening (prevents ERR_SERVER_ALREADY_LISTEN)
-    if (server.listening) {
-        console.log('Server is already listening.');
-        return;
+server.listen(PORT, () => {
+    console.log(`--------------------------------------------------`);
+    console.log(`🚀 Smart Medi Backend started on port ${PORT}`);
+    console.log(`🏠 Mode: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`--------------------------------------------------`);
+}).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Please clear the port or use a different one.`);
+    } else {
+        console.error('Server failed to start:', err);
     }
-
-    // Stage 1: Attempt to clear the primary port (5000) if it's the first try
-    if (port === 5000 || port === parseInt(process.env.PORT)) {
-        await killPort(port);
-    }
-
-    const nextPort = port + 1;
-
-    try {
-        server.listen(port, () => {
-            console.log(`Backend Server Is Running on Port No. ${port}`);
-        }).on('error', (err) => {
-            if (err.code === 'EADDRINUSE') {
-                console.warn(`Port ${port} is occupied. Attempting failover to ${nextPort}...`);
-                // Close the server if it partially failed but registered the event
-                server.close();
-                startServer(nextPort);
-            } else {
-                console.error('Server failed to start:', err);
-                process.exit(1);
-            }
-        });
-    } catch (e) {
-        if (e.code === 'ERR_SERVER_ALREADY_LISTEN') {
-            console.log('Server already listening, ignoring redundant start attempt.');
-        } else {
-            throw e;
-        }
-    }
-};
-
-const PORT = parseInt(process.env.PORT) || 5000;
-startServer(PORT);
+    process.exit(1);
+});

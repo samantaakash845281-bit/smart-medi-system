@@ -39,11 +39,14 @@ const pool = mysql.createPool({
 // Basic test to verify connection
 pool.getConnection()
     .then(connection => {
-        console.log('Database connected successfully');
+        console.log('✅ Database connected successfully');
+        console.log(`📡 Host: ${getPoolConfig().host}`);
         connection.release();
     })
     .catch(err => {
-        console.error('Database connection failed:', err.message);
+        console.error('❌ Database connection failed during startup!');
+        console.error(`🔴 Error: ${err.message}`);
+        console.warn('⚠️ Server will still start, but DB features will be unavailable.');
     });
 
 module.exports = pool;
